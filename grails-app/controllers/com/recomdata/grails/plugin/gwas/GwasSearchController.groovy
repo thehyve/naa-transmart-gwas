@@ -84,8 +84,6 @@ class GwasSearchController {
 							  <resources>
 							    <j2se version="1.6+" java-vm-args="-Xmx800m"/>
 
-							    <jar href="./lib/BioServicesClient.jar"/>
-							    <jar href="./lib/BioServicesUtil.jar"/>
 							    <jar href="./lib/commons-beanutils-1.8.3.jar"/>
 							    <jar href="./lib/commons-beanutils-bean-collections-1.8.3.jar"/>
 							    <jar href="./lib/commons-beanutils-core-1.8.3.jar"/>
@@ -100,7 +98,6 @@ class GwasSearchController {
 							    <jar href="./lib/jgoodies-common-1.3.1.jar"/>
 							    <jar href="./lib/jgoodies-looks-2.5.1.jar"/>
 							    <jar href="./lib/log4j-1.2.17.jar"/>
-							    <jar href="./lib/TDBApi.jar"/>
 							    <jar href="${jar}"/>
 
 							    <property name="jsessionid" value='""" + session.getId() + """'/>
@@ -446,6 +443,7 @@ class GwasSearchController {
             switch(currentAnalysis.assayDataType)
             {
                 case "GWAS" :
+				case "GWAS Fail" :
                 case "Metabolic GWAS" :
                     analysisData = regionSearchService.getAnalysisData(analysisIds, regions, 0, 0, pvalueCutoff, "null", "asc", search, "gwas", geneNames, transcriptGeneNames, false).results
                     analysisIndexData = searchDAO.getGwasIndexData()

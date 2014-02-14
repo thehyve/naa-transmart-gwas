@@ -20,6 +20,10 @@
 
 package com.recomdata.grails.plugin.gwas
 
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
+
 import org.codehaus.groovy.grails.commons.ConfigurationHolder;
 
 import search.SearchKeyword
@@ -83,7 +87,7 @@ class RegionSearchService {
 		SELECT a.*
 		  FROM (SELECT   _analysisSelect_ info.chrom AS chrom,
 		                 info.pos AS pos, info.gene_name AS rsgene,
-		                 DATA.rs_id AS rsid, DATA.p_value AS pvalue,
+		                 DATA.rs_id AS rsid, DATA.p_value AS pvalue, p_value_char,
 		                 DATA.log_p_value AS logpvalue, DATA.ext_data AS extdata,
 		                 info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
 		                 ,
@@ -98,7 +102,7 @@ class RegionSearchService {
 				SELECT a.*
 	  FROM (SELECT   _analysisSelect_ info.chrom AS chrom,
 					 info.pos AS pos, info.rsgene AS rsgene,
-					 DATA.rs_id AS rsid, DATA.p_value AS pvalue,
+					 DATA.rs_id AS rsid, DATA.p_value AS pvalue,p_value_char,
 					 DATA.log_p_value AS logpvalue, DATA.ext_data AS extdata,
 					 info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
 					 ,
@@ -256,7 +260,48 @@ class RegionSearchService {
             con?.close();
         }
     }
+	def BigDecimal log10(BigDecimal b, int dp)
+	{
+		final int NUM_OF_DIGITS = dp+2; // need to add one to get the right number of dp
+										//  and then add one again to get the next number
+										//  so I can round it correctly.
 
+		MathContext mc = new MathContext(NUM_OF_DIGITS, RoundingMode.HALF_EVEN);
+
+		//special conditions:
+		// log(-x) -> exception
+		// log(1) == 0 exactly;
+		// log of a number lessthan one = -log(1/x)
+		if(b.signum() <= 0)
+			throw new ArithmeticException("log of a negative number! (or zero)");
+		else if(b.compareTo(BigDecimal.ONE) == 0)
+			return BigDecimal.ZERO;
+		else if(b.compareTo(BigDecimal.ONE) < 0)
+			return (log10((BigDecimal.ONE).divide(b,mc),dp)).negate();
+
+		StringBuffer sb = new StringBuffer();
+		//number of digits on the left of the decimal point
+		int leftDigits = b.precision() - b.scale();
+
+		//so, the first digits of the log10 are:
+		sb.append(leftDigits - 1).append(".");
+
+		//this is the algorithm outlined in the webpage
+		int n = 0;
+		while(n < NUM_OF_DIGITS)
+		{
+			b = (b.movePointLeft(leftDigits - 1)).pow(10, mc);
+			leftDigits = b.precision() - b.scale();
+			sb.append(leftDigits - 1);
+			n++;
+		}
+
+		BigDecimal ans = new BigDecimal(sb.toString());
+
+		//Round the number to the correct number of decimal places.
+		ans = ans.round(new MathContext(ans.precision() - ans.scale() + dp, RoundingMode.HALF_EVEN));
+		return ans;
+	}
     def getAnalysisData(analysisIds, ranges, Long limit, Long offset, Double cutoff, String sortField, String order, String search, String type, geneNames, transcriptGeneNames, doCount) {
 
         def con, stmt, rs = null;
@@ -468,7 +513,13 @@ class RegionSearchService {
             rs = stmt.executeQuery();
             while(rs.next()){
                 if ((type.equals("gwas"))) {
-                    results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"),analysisNameMap.get( rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome")]);
+					def logp=rs.getDouble("logpvalue");
+					if (logp == Double.POSITIVE_INFINITY )
+					{
+						logp=0 - log10(new BigDecimal(rs.getString("p_value_char")),10);					
+							
+					}
+					results.push([rs.getString("rsid"), rs.getDouble("pvalue"),logp, rs.getString("extdata"),analysisNameMap.get( rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome")]);
                 }
                 else {
                     results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"), analysisNameMap.get(rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("gene")]);
