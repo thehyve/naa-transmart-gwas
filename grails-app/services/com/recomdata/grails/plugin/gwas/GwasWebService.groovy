@@ -22,6 +22,8 @@ package com.recomdata.grails.plugin.gwas
 
 import org.codehaus.groovy.grails.commons.ConfigurationHolder
 import search.SearchKeyword
+import search.AuthUserSecureAccess
+import search.AuthUser
 import com.recomdata.transmart.data.export.util.FileWriterUtil
 
 class GwasWebService {
@@ -133,7 +135,50 @@ class GwasWebService {
             con?.close();
         }
     }
-
+	
+	def getGWASAccess (String study_id, AuthUser user) {
+		
+		//def level=getLevelFromKey(concept_key);
+		def admin=false;
+		for (role in user.authorities)
+		{
+			if (role.authority.equals("ROLE_ADMIN") || role.authority.equals("ROLE_DATASET_EXPLORER_ADMIN")) {
+				admin=true;
+				return 'Admin'; //just set everything to admin and return it all
+			}
+		}
+		if(!admin) //if not admin merge the data from the two maps
+		{
+			def tokens=getSecureTokensWithAccessForUser(user);
+			//tokens.each{ k, v -> log.debug( "${k}:${v}") }
+			if(tokens.containsKey("EXP:"+study_id)) //null tokens are assumed to be unlocked
+			{
+					return tokens["EXP:"+study_id]; //found access for this token so put in access level
+			}
+			else {
+					return "Locked"; //didn't find authorization for this token
+				}
+			
+		}
+	
+		return null;
+	}
+	 def getSecureTokensWithAccessForUser(AuthUser user) {
+		StringBuilder s = new StringBuilder();
+		s.append("SELECT DISTINCT ausa.accessLevel, so.bioDataUniqueId FROM AuthUserSecureAccess ausa JOIN ausa.accessLevel JOIN ausa.secureObject so ")
+		s.append(" WHERE ausa.authUser IS NULL OR ausa.authUser.id = ").append(user.id)
+		def t=[:];
+		//return access levels for the children of this path that have them
+		def results = AuthUserSecureAccess.executeQuery(s.toString());
+		for (row in results){
+			def token = row[1];
+			def accessLevel = row[0];
+			log.trace(token+":"+accessLevel.accessLevelName);
+			t.put(token,accessLevel.accessLevelName);
+		}
+		t.put("EXP:PUBLIC","OWN");
+		return t;
+	}
     def getGeneByPosition(String chromosome, Long start, Long stop, String snpSource) {
         def query = genePositionSqlQuery;
         def geneQuery = geneLimitsSqlQueryByEntrez;

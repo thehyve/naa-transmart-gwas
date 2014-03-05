@@ -8,6 +8,8 @@ import org.codehaus.groovy.grails.web.json.JSONObject
 import search.GeneSignature
 import search.GeneSignatureItem
 import search.SearchKeyword
+import search.AuthUser
+import search.SecureObject
 import com.recomdata.transmart.domain.searchapp.FormLayout
 
 import java.lang.reflect.UndeclaredThrowableException
@@ -21,10 +23,11 @@ import static java.util.UUID.randomUUID
 class GwasSearchController {
 
     def regionSearchService
+	def gwasWebService
     def RModulesFileWritingService
     def RModulesJobProcessingService
     def RModulesOutputRenderService
-
+    def springSecurityService
     /**
      * Renders a UI for selecting regions by gene/RSID or chromosome.
      */
@@ -1009,7 +1012,22 @@ class GwasSearchController {
 
         dataWriter.close()
     }
-
+	def getExperimentSecureStudyList(){  //ZHANH101
+		
+		StringBuilder s = new StringBuilder();
+		s.append("SELECT so.bioDataUniqueId, so.bioDataId FROM SecureObject so Where so.dataType='Experiment'")
+		def t=[:];
+		//return access levels for the children of this path that have them
+		def results = SecureObject.executeQuery(s.toString());
+		for (row in results){
+			def token = row[0];
+			def dataid = row[1];
+			token=token.replaceFirst("EXP:","")
+			log.info(token+":"+dataid);
+			t.put(token,dataid);
+		}
+		return t;
+	}
     def exportAnalysis = {
 
         def paramMap = params;
@@ -1023,7 +1041,9 @@ class GwasSearchController {
         def transcriptGeneNames = getTranscriptGeneNames(session['solrSearchFilter'])
         def queryparameter=session['solrSearchFilter']
 
-
+		def user=AuthUser.findByUsername(springSecurityService.getPrincipal().username)
+		def secObjs=getExperimentSecureStudyList()
+		
         if (isLink == "true") {
             def analysisId = params.analysisId
             analysisId = analysisId.toLong()
@@ -1043,7 +1063,14 @@ class GwasSearchController {
 
                 for (analysisId in analysisIds) {
                     analysisId = analysisId.toLong()
-                    links += link+"?analysisId=" + analysisId + "&regions="+regions.toString().replace(" ","")+"&cutoff="+cutoff+"&geneNames="+geneNames.toString().replace(" ","")+"&isLink=true\n"
+					def analysis = BioAssayAnalysis.findById(analysisId, [max: 1])
+					def access=gwasWebService.getGWASAccess(analysis.etlId, user)
+					if(!secObjs.containsKey(analysis.etlId) || (!access.equals("Locked")  && !access.equals("VIEW"))){
+						links += link+"?analysisId=" + analysisId + "&regions="+regions.toString().replace(" ","")+"&cutoff="+cutoff+"&geneNames="+geneNames.toString().replace(" ","")+"&isLink=true\n"
+					}
+					else{
+						links += "Analysis " + analysis.name + " is a restricted study, you do not have permission to export.\n"
+					}
                 }
             }
             def messageSubject = "Export Analysis Results"  //(links,messageSubject,mailId)
@@ -1057,16 +1084,27 @@ class GwasSearchController {
         } else {
             def analysisIds = params?.analysisIds.split(",")
             def mailId = params.toMailId
-
+			def restrictedMsg=""
             def timestamp = new Date().format("yyyyMMddhhmmss")
             def rootFolder = "Export_" + timestamp
             String location = grailsApplication.config.grails.mail.attachments.dir
 			String lineSeparator = System.getProperty('line.separator')
             String rootDir = location + File.separator+rootFolder 
-			log.debug(rootDir +"is root directory");
+			log.debug(rootDir +" is root directory");
+			def analysisAIds=[]
+			for(analysisId in analysisIds){
+				analysisId = analysisId.toLong()
+				def analysis = BioAssayAnalysis.findById(analysisId, [max: 1])
+				def access=gwasWebService.getGWASAccess(analysis.etlId, user)
+				if(!secObjs.containsKey(analysis.etlId) || (!access.equals("Locked")  && !access.equals("VIEW"))){
+					analysisAIds.add(analysisId)
+				}
+				else{
+					restrictedMsg += "Analysis " + analysis.name + "is a restricted study, you do not have permission to export.\n"				}
+			}
             if (analysisIds.size() > 0) {
 
-                for (analysisId in analysisIds) {
+                for (analysisId in analysisAIds) {
                     analysisId = analysisId.toLong()
                     def analysis = BioAssayAnalysis.findById(analysisId, [max: 1])
                     def accession = analysis.etlId
@@ -1091,7 +1129,7 @@ class GwasSearchController {
                     File file = new File(fileName);
                     BufferedWriter dataWriter = new BufferedWriter(new FileWriter(file));
                     exportAnalysisData(analysisId,dataWriter,cutoff,regions,geneNames,transcriptGeneNames,200)
-File.separator
+//File.separator
                     //This is to generate a file with Study Metadata
                     def FileStudyMeta = dirStudy + accession + "_STUDY_METADATA.txt"
                     File FileStudy = new File(FileStudyMeta)
@@ -1347,10 +1385,11 @@ File.separator
             File topDir = new File(rootDir)
 
             def zipFile = location +File.separator+ rootFolder + ".zip"
+			
             ZipOutputStream zipOutput = new ZipOutputStream(new FileOutputStream(zipFile));
 
             int topDirLength = topDir.absolutePath.length()
-
+			
             topDir.eachFileRecurse { file ->
                 def relative = file.absolutePath.substring(topDirLength).replace('\\', '/')
                 if (file.isDirectory() && !relative.endsWith('/')) {
@@ -1368,17 +1407,17 @@ File.separator
             zipOutput.close()
 
             //the path of the file e.g. : "c:/Users/nikos7/Desktop/myFile.txt"
-            String messageBody = "Attached is the list of Analyses"
+            String messageBody = "Attached is the list of Analyses\n"+restrictedMsg
             String file = zipFile
             String messageSubject = "Export of Analysis as attachment"
             if (queryparameter) {messageBody+="Query Criteria at time of export: "+queryparameter+"\n"}
-
+            file.substring(file.lastIndexOf('/')+1)
             sendMail {
                 multipart true
                 to mailId
                 subject messageSubject
                 text messageBody
-                attach file, "application/zip", new File(file)
+                attach file.substring(file.lastIndexOf('/')+1), "application/zip", new File(file)
             }
         }
 
