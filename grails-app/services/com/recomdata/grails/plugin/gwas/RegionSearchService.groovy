@@ -569,7 +569,7 @@ class RegionSearchService {
 						rs.getDouble("pvalue"),
 						rs.getDouble("logpvalue"),
 						rs.getString("extdata"),
-						analysisNameMap.get(rs.getLong("analysis_id")),
+						analysisNameMap.get( rs.getLong("analysis_id")),
 						studyNameMap.get(rs.getLong("analysis_id")),
 						rs.getString("rsgene"),
 						rs.getString("chrom"),
@@ -642,6 +642,30 @@ class RegionSearchService {
 		def con, stmt, rs = null;
 		con = dataSource.getConnection()
 		StringBuilder queryCriteria = new StringBuilder();
+		StringBuilder studyQuery=new StringBuilder();
+		studyQuery.append(studyNameSqlQuery);
+		studyQuery.append(" and analysis_name = '"+ analysisName+"'");
+		String study=""
+		
+		try {
+			log.debug("Study:"+studyQuery)
+			stmt = con.prepareStatement(studyQuery.toString())
+
+			rs = stmt.executeQuery();
+			while (rs.next()) {
+				study= rs.getString("study");
+			}
+		}catch(Exception e){
+			log.error(e.getMessage(),e)
+			throw e;
+		}
+		finally {
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+
+
 		def quickQuery
 
 		if (type.equals("eqtl")) {
@@ -650,6 +674,7 @@ class RegionSearchService {
 		else {
 			quickQuery = quickQueryGwas
 		}
+		
 
 		def results = []
 		try {
@@ -683,6 +708,7 @@ class RegionSearchService {
 						rs.getDouble("logpvalue"),
 						rs.getString("extdata"),
 						rs.getString("analysis"),
+						study,
 						rs.getString("rsgene"),
 						rs.getString("chrom"),
 						rs.getLong("pos"),

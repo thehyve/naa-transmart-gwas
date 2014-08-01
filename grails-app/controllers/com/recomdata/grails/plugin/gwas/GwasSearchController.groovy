@@ -275,8 +275,8 @@ class GwasSearchController {
 		//			session['cachedAnalysisData'] = analysisData
 		//		}
 		def wasShortcut = false
-	/* shouldn't execute short cut query...
-	 * 	if (!regions && !geneNames && !transcriptGeneNames && analysisIds.size() == 1 && sortField.equals('null') && !cutoff && !search && max > 0) {
+	 //shouldn't execute short cut query...
+	  	if (!regions && !geneNames && !transcriptGeneNames && analysisIds.size() == 1 && sortField.equals('null') && !cutoff && !search && max > 0) {
 			println("Triggering shortcut query")
 			wasShortcut = true
 			//If displaying no regions and only one analysis, run the alternative query and pull back the rows for the limits
@@ -288,7 +288,7 @@ class GwasSearchController {
 			totalCount = analysis.dataCount
 			println("Got results in a batch of " + analysisData.size())
 		}
-		else {*/
+		else {
 			//Otherwise, run the query and recache the returned data
 			if (sortField.equals('null')) {sortField = 'data.p_value';}
 			queryResult = regionSearchService.getAnalysisData(analysisIds, regions, max, offset, cutoff, sortField, order, search, type, geneNames, transcriptGeneNames, true)
@@ -300,7 +300,7 @@ class GwasSearchController {
 			//				session['cachedAnalysisData'] = analysisData
 			//				session['cachedCount'] = totalCount
 			//			}
-		//}
+		}
 
 
 		def analysisIndexData
