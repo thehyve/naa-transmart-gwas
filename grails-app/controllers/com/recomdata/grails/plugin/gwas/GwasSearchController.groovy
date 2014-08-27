@@ -275,7 +275,7 @@ class GwasSearchController {
 		//			session['cachedAnalysisData'] = analysisData
 		//		}
 		def wasShortcut = false
-	 //shouldn't execute short cut query...
+	 //shouldn't execute short cut query... //berubh to-do
 	  	if (!regions && !geneNames && !transcriptGeneNames && analysisIds.size() == 1 && sortField.equals('null') && !cutoff && !search && max > 0) {
 			println("Triggering shortcut query")
 			wasShortcut = true
@@ -689,6 +689,17 @@ class GwasSearchController {
 		if (search != null) { filter.search = search }
 
 		def analysisIds = session['solrAnalysisIds']
+		// following code will limit analysis ids to ones that the user is allowed to access
+		def user=AuthUser.findByUsername(springSecurityService.getPrincipal().username)
+		def secObjs=getExperimentSecureStudyList()
+		def analyses = bio.BioAssayAnalysis.executeQuery("select id, name, etlId from BioAssayAnalysis b order by b.name")
+		analyses=analyses.findAll{!secObjs.containsKey(it[2]) || !gwasWebService.getGWASAccess(it[2], user).equals("Locked") }
+		analyses=analyses.findAll {analysisIds.contains(it[0])}
+		
+		def allowedAnalysisIds = []
+		
+		analyses.each { allowedAnalysisIds.add(it[0])}
+		analysisIds = allowedAnalysisIds
 
 		session['filterTableView'] = filter
 
