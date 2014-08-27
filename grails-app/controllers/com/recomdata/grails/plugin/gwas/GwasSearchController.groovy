@@ -682,7 +682,19 @@ class GwasSearchController {
         if (search != null) { filter.search = search }
 
         def analysisIds = session['solrAnalysisIds']
-
+		
+		// restrict displayed analysis for a specific user to those he is allowed to see //berubh
+		def user=AuthUser.findByUsername(springSecurityService.getPrincipal().username)
+		def secObjs=getExperimentSecureStudyList()
+		def analyses = bio.BioAssayAnalysis.executeQuery("select id, name, etlId from BioAssayAnalysis b order by b.name")
+		analyses=analyses.findAll{!secObjs.containsKey(it[2]) || !gwasWebService.getGWASAccess(it[2], user).equals("Locked") }
+		analyses=analyses.findAll {analysisIds.contains(it[0])}
+		
+		def allowedAnalysisIds = []
+		
+		analyses.each { allowedAnalysisIds.add(it[0])}
+		analysisIds = allowedAnalysisIds
+		
         session['filterTableView'] = filter
 
 /*		if (analysisIds.size() >= 100) {
