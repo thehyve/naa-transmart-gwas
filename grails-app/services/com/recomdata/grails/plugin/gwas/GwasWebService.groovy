@@ -24,17 +24,19 @@ import org.codehaus.groovy.grails.commons.ConfigurationHolder
 import search.SearchKeyword
 import search.AuthUserSecureAccess
 import search.AuthUser
+import search.SecureObject
 import com.recomdata.transmart.data.export.util.FileWriterUtil
 
 class GwasWebService {
 
-    boolean transactional = true
+	boolean transactional = true
 
-    def dataSource
-    def grailsApplication
-    def config = ConfigurationHolder.config
+	def dataSource
+	def i2b2HelperService
+	def grailsApplication
+	def config = ConfigurationHolder.config
 
-    def final geneLimitsSqlQueryByKeyword = """
+	def final geneLimitsSqlQueryByKeyword = """
 	
 	SELECT max(snpinfo.pos) as high, min(snpinfo.pos) as low, min(snpinfo.chrom) as chrom FROM SEARCHAPP.SEARCH_KEYWORD
 	INNER JOIN bio_marker bm ON bm.BIO_MARKER_ID = SEARCH_KEYWORD.BIO_DATA_ID
@@ -43,7 +45,7 @@ class GwasWebService {
 	WHERE KEYWORD=? AND snpinfo.hg_version = ?
 	"""
 
-    def final geneLimitsSqlQueryById = """
+	def final geneLimitsSqlQueryById = """
 	
 	SELECT BIO_MARKER_ID, max(snpinfo.pos) as high, min(snpinfo.pos) as low, min(snpinfo.chrom) as chrom from bio_marker bm
 	INNER JOIN deapp.de_snp_gene_map gmap ON gmap.entrez_gene_id = bm.PRIMARY_EXTERNAL_ID
@@ -52,7 +54,7 @@ class GwasWebService {
 	GROUP BY BIO_MARKER_ID
 	"""
 
-    def final geneLimitsSqlQueryByEntrez = """
+	def final geneLimitsSqlQueryByEntrez = """
 
 		SELECT BIO_MARKER_ID, max(snpinfo.pos) as high, min(snpinfo.pos) as low, min(snpinfo.chrom) as chrom from deapp.de_snp_gene_map gmap
 		INNER JOIN DEAPP.DE_RC_SNP_INFO snpinfo ON gmap.snp_name = snpinfo.rs_id
@@ -62,33 +64,33 @@ class GwasWebService {
 	
 	"""
 
-    def final genePositionSqlQuery = """
+	def final genePositionSqlQuery = """
 		SELECT DISTINCT BIO_MARKER_ID, ENTREZ_GENE_ID, BIO_MARKER_NAME, BIO_MARKER_DESCRIPTION FROM deapp.de_snp_gene_map gmap
 		INNER JOIN DEAPP.DE_RC_SNP_INFO snpinfo ON gmap.snp_name = snpinfo.rs_id
 		INNER JOIN BIO_MARKER bm ON bm.primary_external_id = to_char(gmap.entrez_gene_id)
 		WHERE chrom = ? AND pos >= ? AND pos <= ? AND HG_VERSION = ?
 	"""
-    // changed study_name to accession because GWAVA needs short name.
-    def final modelInfoSqlQuery = """
-		SELECT baa.bio_assay_analysis_id as id, ext.model_name as modelName, baa.analysis_name as analysisName, be.accession as studyName
+	// changed study_name to accession because GWAVA needs short name.
+	def final modelInfoSqlQuery = """
+		SELECT to_char(baa.bio_assay_analysis_id) as id, ext.model_name as modelName, baa.analysis_name as analysisName, be.accession as studyName, to_char(be.bio_experiment_id) as study_id
 		FROM bio_assay_analysis baa
 		LEFT JOIN bio_assay_analysis_ext ext ON baa.bio_assay_analysis_id = ext.bio_assay_analysis_id
 		LEFT JOIN bio_experiment be ON baa.etl_id = be.accession
 		WHERE baa.bio_assay_data_type = ?
 	"""
-    //added additional query to pull gene strand information from the annotation.
-    def final getGeneStrand = """
+	//added additional query to pull gene strand information from the annotation.
+	def final getGeneStrand = """
 		select STRAND from DEAPP.de_gene_info where gene_source_id=1 and entrez_id=?
 	"""
 
-    def final getRecombinationRatesForGeneQuery = """
+	def final getRecombinationRatesForGeneQuery = """
         select position,rate
         from biomart.bio_recombination_rates recomb,
         (select CASE WHEN chrom_start between 0 and ? THEN 0 ELSE (chrom_start-?) END s, (chrom_stop+?) e, chrom from deapp.de_gene_info g where gene_symbol=? order by chrom_start) geneSub
         where recomb.chromosome=(geneSub.chrom) and position between s and e order by position
     """
 
-    def final snpSearchQuery = """
+	def final snpSearchQuery = """
         with data_subset as
         (
         select gwas.rs_id rs_id, LOG_P_VALUE, analysis_name||' - '||bio_experiment.accession analysis_name from BIOMART.bio_assay_analysis_gwas gwas
@@ -106,43 +108,256 @@ class GwasWebService {
         join data_subset on (data_subset.rs_id=ann_res.rs_id)
 """
 
-    def computeGeneBounds(String geneSymbol, String geneSourceId, String snpSource) {
-        def query = geneLimitsSqlQueryByKeyword;
+	def computeGeneBounds(String geneSymbol, String geneSourceId, String snpSource) {
+		def query = geneLimitsSqlQueryByKeyword;
 
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
 
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
 
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(query);
-        stmt.setString(1, geneSymbol)
-        stmt.setString(2, snpSource)
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(query);
+		stmt.setString(1, geneSymbol)
+		stmt.setString(2, snpSource)
 
-        rs = stmt.executeQuery();
+		rs = stmt.executeQuery();
 
-        try{
-            if(rs.next()){
-                def high = rs.getLong("HIGH");
-                def low = rs.getLong("LOW");
-                def chrom = rs.getLong("CHROM")
-                return [low, high, chrom]
-            }
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
-    }
+		try{
+			if(rs.next()){
+				def high = rs.getLong("HIGH");
+				def low = rs.getLong("LOW");
+				def chrom = rs.getLong("CHROM")
+				return [low, high, chrom]
+			}
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
+
+
+	def getGeneByPosition(String chromosome, Long start, Long stop, String snpSource) {
+		def query = genePositionSqlQuery;
+		def geneQuery = geneLimitsSqlQueryByEntrez;
+
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
+		def geneStmt, geneInfoStmt,geneRs, geneInfoRs = null;
+
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
+
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(query);
+		stmt.setString(1, chromosome)
+		stmt.setLong(2, start)
+		stmt.setLong(3, stop)
+		stmt.setString(4, snpSource)
+		rs = stmt.executeQuery();
+
+		def results = []
+
+		geneStmt = con.prepareStatement(geneQuery)
+		geneInfoStmt = con.prepareStatement(getGeneStrand)
+
+		try {
+			while(rs.next()) {
+
+				def entrezGeneId = rs.getLong("ENTREZ_GENE_ID")
+				geneInfoStmt.setString(1, entrezGeneId.toString())
+				geneInfoRs=geneInfoStmt.executeQuery();
+				def strand = 0
+				try
+				{if (geneInfoRs.next())
+						strand=geneInfoRs.getString("STRAND")
+				} finally {
+					geneInfoRs.close();
+				}
+				log.debug("Gene strand query:" +geneInfoRs)
+				geneStmt.setString(1, entrezGeneId.toString())
+				geneStmt.setString(2, snpSource)
+				geneRs = geneStmt.executeQuery();
+				try {
+					if(geneRs.next()) {
+						results.push([
+							rs.getString("BIO_MARKER_ID"),
+							"GRCh37",
+							rs.getString("BIO_MARKER_NAME"),
+							rs.getString("BIO_MARKER_DESCRIPTION"),
+							geneRs.getString("CHROM"),
+							geneRs.getLong("LOW"),
+							geneRs.getLong("HIGH"),
+							strand,
+							0,
+							rs.getLong("ENTREZ_GENE_ID")
+						])
+					}
+				}
+				finally {
+					geneRs?.close();
+				}
+			}
+
+			return results
+		}
+		finally {
+			rs?.close();
+			geneRs?.close();
+			stmt?.close();
+			geneStmt?.close();
+			con?.close();
+		}
+
+	}
+
+	def getModelInfo(String type) {
+		def query = modelInfoSqlQuery;
+
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
+
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
+
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(query);
+		stmt.setString(1, type)
+
+		rs = stmt.executeQuery();
+
+		def results = []
+
+		try{
+			while(rs.next()){
+				def id = new BigInteger(rs.getString("ID"));
+				def modelName = rs.getString("MODELNAME");
+				def analysisName = rs.getString("ANALYSISNAME");
+				def studyName = rs.getString("STUDYNAME");
+					results.push([
+						id,
+						modelName,
+						analysisName,
+						studyName
+					])
+
+			}
+			return results;
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
+	def getSecureModelInfo(String type,String user) {
+		def query = modelInfoSqlQuery;
+
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
+
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
+
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(query);
+		stmt.setString(1, type)
+
+		rs = stmt.executeQuery();
+
+		def results = []
+
+		try{
+			while(rs.next()){
+				def id = new BigInteger(rs.getString("ID"));
+				def modelName = rs.getString("MODELNAME");
+				def analysisName = rs.getString("ANALYSISNAME");
+				def studyName = rs.getString("STUDYNAME");
+				def studyId= new BigInteger(rs.getString("study_id"));
+				
+
+			
+				if (checkSecureStudyAccess(user.toLowerCase(), studyName))
+				{
+					results.push([
+						id,
+						modelName,
+						analysisName,
+						studyName
+					])
+				}
+			}
+			return results;
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
+
+	def checkSecureStudyAccess(user, accession)
+	{
+		log.debug("checking security for the user: "+user)
+		def secObjs=getExperimentSecureStudyList()
+		if (secObjs!=null)
+		{if (!secObjs.containsKey(accession))
+			{
+					return true;
+			}
+			else
+			{
+				def cser=AuthUser.findByUsername(user)
+				if (getGWASAccess(accession, cser).equals("Locked"))
+					{
+						return false;
+					}
+					else
+					{
+						return true;
+					}
+			}}
+		return true;
+	}
+	def isAdminRole(role){
+		return role.authority.equals("ROLE_ADMIN") || role.authority.equals("ROLE_DATASET_EXPLORER_ADMIN");
+	}
+	/**
+	 *  check whether or not a user is admin
+	 */
+	def isAdmin(user){
+		def admin=false;
+		for (role in user.authorities){
+			if (isAdminRole(role)) {admin=true;
+			}
+		}
+		return admin;
+	}
+	//ToDo:  move this code out of I2B2HelperService. //AK
+	def getExperimentSecureStudyList(){  
+		
+		StringBuilder s = new StringBuilder();
+		s.append("SELECT so.bioDataUniqueId, so.bioDataId FROM SecureObject so Where so.dataType='Experiment'")
+		def t=[:];
+		//return access levels for the children of this path that have them
+		def results = SecureObject.executeQuery(s.toString());
+		for (row in results){
+			def token = row[0];
+			def dataid = row[1];
+			token=token.replaceFirst("EXP:","")
+			log.info(token+":"+dataid);
+			t.put(token,dataid);
+		}
+		return t;
+	}
 	
-	def getGWASAccess (String study_id, AuthUser user) {
+	def getGWASAccess (study_id, user) {
 		
 		//def level=getLevelFromKey(concept_key);
 		def admin=false;
 		for (role in user.authorities)
 		{
-			if (role.authority.equals("ROLE_ADMIN") || role.authority.equals("ROLE_DATASET_EXPLORER_ADMIN")) {
+			if (isAdminRole(role)) {
 				admin=true;
 				return 'Admin'; //just set everything to admin and return it all
 			}
@@ -151,9 +366,9 @@ class GwasWebService {
 		{
 			def tokens=getSecureTokensWithAccessForUser(user);
 			//tokens.each{ k, v -> log.debug( "${k}:${v}") }
-			if(tokens.containsKey("EXP:"+study_id)) //null tokens are assumed to be unlocked
+			if(tokens.containsKey(study_id)) //null tokens are assumed to be unlocked
 			{
-					return tokens["EXP:"+study_id]; //found access for this token so put in access level
+					return tokens[study_id]; //found access for this token so put in access level
 			}
 			else {
 					return "Locked"; //didn't find authorization for this token
@@ -163,7 +378,157 @@ class GwasWebService {
 	
 		return null;
 	}
-	 def getSecureTokensWithAccessForUser(AuthUser user) {
+	def final analysisDataSqlQueryGwas = """
+		SELECT gwas.rs_id as rsid, gwas.bio_asy_analysis_gwas_id as resultid, gwas.bio_assay_analysis_id as analysisid, 
+    	gwas.p_value as pvalue, gwas.log_p_value as logpvalue, be.accession as studyname, baa.analysis_name as analysisname, 
+    	baa.bio_assay_data_type AS datatype, info.pos as posstart, info.chrom as chromosome, info.gene_name as gene,
+    	info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
+		FROM biomart.Bio_Assay_Analysis_Gwas gwas
+		LEFT JOIN deapp.de_rc_snp_info info ON gwas.rs_id = info.rs_id
+		LEFT JOIN biomart.Bio_Assay_Analysis baa ON baa.bio_assay_analysis_id = gwas.bio_assay_analysis_id
+		LEFT JOIN biomart.bio_experiment be ON be.accession = baa.etl_id
+		WHERE (info.pos BETWEEN ? AND ?)
+		AND chrom = ? AND info.hg_version = ?
+    	AND gwas.bio_assay_analysis_id IN (
+	"""
+
+	def final analysisDataSqlQueryEqtl = """
+		SELECT eqtl.rs_id as rsid, eqtl.bio_asy_analysis_data_id as resultid, eqtl.bio_assay_analysis_id as analysisid,
+		eqtl.p_value as pvalue, eqtl.log_p_value as logpvalue, be.title as studyname, baa.analysis_name as analysisname,
+		baa.bio_assay_data_type AS datatype, info.pos as posstart, info.chrom as chromosome, info.gene_name as gene,
+		info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
+		FROM biomart.Bio_Assay_Analysis_eqtl eqtl
+		LEFT JOIN deapp.de_rc_snp_info info ON eqtl.rs_id = info.rs_id
+		LEFT JOIN biomart.Bio_Assay_Analysis baa ON baa.bio_assay_analysis_id = eqtl.bio_assay_analysis_id
+		LEFT JOIN biomart.bio_experiment be ON be.accession = baa.etl_id
+		WHERE (info.pos BETWEEN ? AND ?)
+		AND chrom = ? AND info.hg_version = ?
+		AND eqtl.bio_assay_analysis_id IN (
+	"""
+
+	//def final intronValues = ["INTRON", "SPLICE_SITE_ACCEPTOR", "SPLICE_SITE_DONOR"]
+
+	def getAnalysisDataBetween(analysisIds, low, high, chrom, snpSource) {
+		//Get all data for the given analysisIds that falls between the limits
+		def gwasQuery = analysisDataSqlQueryGwas;
+		def eqtlQuery = analysisDataSqlQueryEqtl;
+		gwasQuery += analysisIds.join(",") + ")"
+		eqtlQuery += analysisIds.join(",") + ")"
+
+		def results = []
+
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
+
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
+
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(gwasQuery);
+		stmt.setLong(1, low)
+		stmt.setLong(2, high)
+		stmt.setString(3, String.valueOf(chrom))
+		stmt.setString(4, snpSource)
+
+		rs = stmt.executeQuery();
+
+		try{
+			while(rs.next()){
+				results.push(
+						[
+							rs.getString("rsid"),
+							rs.getLong("resultid"),
+							rs.getLong("analysisid"),
+							rs.getDouble("pvalue"),
+							rs.getDouble("logpvalue"),
+							rs.getString("studyname"),
+							rs.getString("analysisname"),
+							rs.getString("datatype"),
+							rs.getLong("posstart"),
+							rs.getString("chromosome"),
+							rs.getString("gene"),
+							rs.getString("intronexon"),
+							rs.getLong("recombinationrate"),
+							rs.getString("regulome")
+						])
+			}
+			return results;
+		}finally{
+			rs?.close();
+			stmt?.close();
+		}
+
+		//And again for EQTL
+		stmt = con.prepareStatement(eqtlQuery);
+		stmt.setLong(1, low)
+		stmt.setLong(2, high)
+		stmt.setString(3, String.valueOf(chrom))
+		stmt.setString(4, snpSource)
+
+		rs = stmt.executeQuery();
+
+		try{
+			while(rs.next()){
+				results.push([
+					rs.getString("rsid"),
+					rs.getLong("resultid"),
+					rs.getLong("analysisid"),
+					rs.getDouble("pvalue"),
+					rs.getDouble("logpvalue"),
+					rs.getString("studyname"),
+					rs.getString("analysisname"),
+					rs.getString("datatype"),
+					rs.getLong("posstart"),
+					rs.getString("chromosome"),
+					rs.getString("gene"),
+					rs.getString("intronexon"),
+					rs.getLong("recombinationrate"),
+					rs.getString("regulome")
+				])
+			}
+			return results;
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
+
+	def getRecombinationRatesForGene(String geneSymbol, Long range) {
+		def query = getRecombinationRatesForGeneQuery;
+
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
+
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
+
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(query);
+		stmt.setLong(1, range)
+		stmt.setLong(2, range)
+		stmt.setLong(3, range)
+		stmt.setString(4, geneSymbol)
+
+		rs = stmt.executeQuery();
+
+		def results = []
+		try{
+			while(rs.next()){
+				results.push([
+					rs.getLong("POSITION"),
+					rs.getDouble("RATE")
+				])
+			}
+			return results
+
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
+	def getSecureTokensWithAccessForUser(user) {
 		StringBuilder s = new StringBuilder();
 		s.append("SELECT DISTINCT ausa.accessLevel, so.bioDataUniqueId FROM AuthUserSecureAccess ausa JOIN ausa.accessLevel JOIN ausa.secureObject so ")
 		s.append(" WHERE ausa.authUser IS NULL OR ausa.authUser.id = ").append(user.id)
@@ -179,337 +544,98 @@ class GwasWebService {
 		t.put("EXP:PUBLIC","OWN");
 		return t;
 	}
-    def getGeneByPosition(String chromosome, Long start, Long stop, String snpSource) {
-        def query = genePositionSqlQuery;
-        def geneQuery = geneLimitsSqlQueryByEntrez;
+	
+	def snpSearch(analysisIds, Long range, String rsId, String hgVersion) {
+		def query = snpSearchQuery;
 
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
-        def geneStmt, geneInfoStmt,geneRs, geneInfoRs = null;
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
 
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
 
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(query);
-        stmt.setString(1, chromosome)
-        stmt.setLong(2, start)
-        stmt.setLong(3, stop)
-        stmt.setString(4, snpSource)
-        rs = stmt.executeQuery();
+		query = query.replace("_analysisIds_", analysisIds.join(","))
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(query);
+		stmt.setLong(1, range)
+		stmt.setLong(2, range)
+		stmt.setString(3, rsId)
+		stmt.setString(4, hgVersion)
+		stmt.setString(5, hgVersion)
 
-        def results = []
+		rs = stmt.executeQuery();
 
-        geneStmt = con.prepareStatement(geneQuery)
-        geneInfoStmt = con.prepareStatement(getGeneStrand)
+		def results = []
+		try{
+			while(rs.next()){
+				results.push([
+					rs.getString("RS_ID"),
+					rs.getLong("CHROM"),
+					rs.getLong("POS"),
+					rs.getDouble("LOG_P_VALUE"),
+					rs.getString("ANALYSIS_NAME"),
+					rs.getString("gene"),
+					rs.getString("exon_intron"),
+					rs.getDouble("recombination_rate"),
+					rs.getString("regulome_score")
+				])
+			}
+			return results
 
-        try {
-            while(rs.next()) {
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
 
-                def entrezGeneId = rs.getLong("ENTREZ_GENE_ID")
-                geneInfoStmt.setString(1, entrezGeneId.toString())
-                geneInfoRs=geneInfoStmt.executeQuery();
-                def strand = 0
-                try
-                {if (geneInfoRs.next())
-                    strand=geneInfoRs.getString("STRAND")
-                } finally {
-                    geneInfoRs.close();
-                }
-                log.debug("Gene strand query:" +geneInfoRs)
-                geneStmt.setString(1, entrezGeneId.toString())
-                geneStmt.setString(2, snpSource)
-                geneRs = geneStmt.executeQuery();
-                try {
-                    if(geneRs.next()) {
-                        results.push([
-                                rs.getString("BIO_MARKER_ID"),
-                                "GRCh37",
-                                rs.getString("BIO_MARKER_NAME"),
-                                rs.getString("BIO_MARKER_DESCRIPTION"),
-                                geneRs.getString("CHROM"),
-                                geneRs.getLong("LOW"),
-                                geneRs.getLong("HIGH"),
-                                strand,
-                                0,
-                                rs.getLong("ENTREZ_GENE_ID")
-                        ])
-                    }
-                }
-                finally {
-                    geneRs?.close();
-                }
-            }
-
-            return results
-        }
-        finally {
-            rs?.close();
-            geneRs?.close();
-            stmt?.close();
-            geneStmt?.close();
-            con?.close();
-        }
-
-    }
-
-    def getModelInfo(String type) {
-        def query = modelInfoSqlQuery;
-
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
-
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
-
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(query);
-        stmt.setString(1, type)
-
-        rs = stmt.executeQuery();
-
-        def results = []
-
-        try{
-            while(rs.next()){
-                def id = rs.getLong("ID");
-                def modelName = rs.getString("MODELNAME");
-                def analysisName = rs.getString("ANALYSISNAME");
-                def studyName = rs.getString("STUDYNAME");
-
-                results.push([id, modelName, analysisName, studyName])
-            }
-            return results;
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
-    }
-
-    def final analysisDataSqlQueryGwas = """
-		SELECT gwas.rs_id as rsid, gwas.bio_asy_analysis_gwas_id as resultid, gwas.bio_assay_analysis_id as analysisid, 
-    	gwas.p_value as pvalue, gwas.log_p_value as logpvalue, be.accession as studyname, baa.analysis_name as analysisname, 
-    	baa.bio_assay_data_type AS datatype, info.pos as posstart, info.chrom as chromosome, info.gene_name as gene,
-    	info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
-		FROM biomart.Bio_Assay_Analysis_Gwas gwas
-		LEFT JOIN deapp.de_rc_snp_info info ON gwas.rs_id = info.rs_id
-		LEFT JOIN biomart.Bio_Assay_Analysis baa ON baa.bio_assay_analysis_id = gwas.bio_assay_analysis_id
-		LEFT JOIN biomart.bio_experiment be ON be.accession = baa.etl_id
-		WHERE (info.pos BETWEEN ? AND ?)
-		AND chrom = ? AND info.hg_version = ?
-    	AND gwas.bio_assay_analysis_id IN (
-	"""
-
-    def final analysisDataSqlQueryEqtl = """
-		SELECT eqtl.rs_id as rsid, eqtl.bio_asy_analysis_data_id as resultid, eqtl.bio_assay_analysis_id as analysisid,
-		eqtl.p_value as pvalue, eqtl.log_p_value as logpvalue, be.title as studyname, baa.analysis_name as analysisname,
-		baa.bio_assay_data_type AS datatype, info.pos as posstart, info.chrom as chromosome, info.gene_name as gene,
-		info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
-		FROM biomart.Bio_Assay_Analysis_eqtl eqtl
-		LEFT JOIN deapp.de_rc_snp_info info ON eqtl.rs_id = info.rs_id
-		LEFT JOIN biomart.Bio_Assay_Analysis baa ON baa.bio_assay_analysis_id = eqtl.bio_assay_analysis_id
-		LEFT JOIN biomart.bio_experiment be ON be.accession = baa.etl_id
-		WHERE (info.pos BETWEEN ? AND ?)
-		AND chrom = ? AND info.hg_version = ?
-		AND eqtl.bio_assay_analysis_id IN (
-	"""
-
-    //def final intronValues = ["INTRON", "SPLICE_SITE_ACCEPTOR", "SPLICE_SITE_DONOR"]
-
-    def getAnalysisDataBetween(analysisIds, low, high, chrom, snpSource) {
-        //Get all data for the given analysisIds that falls between the limits
-        def gwasQuery = analysisDataSqlQueryGwas;
-        def eqtlQuery = analysisDataSqlQueryEqtl;
-        gwasQuery += analysisIds.join(",") + ")"
-        eqtlQuery += analysisIds.join(",") + ")"
-
-        def results = []
-
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
-
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
-
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(gwasQuery);
-        stmt.setLong(1, low)
-        stmt.setLong(2, high)
-        stmt.setString(3, String.valueOf(chrom))
-        stmt.setString(4, snpSource)
-
-        rs = stmt.executeQuery();
-
-        try{
-            while(rs.next()){
-                results.push(
-                        [rs.getString("rsid"),
-                                rs.getLong("resultid"),
-                                rs.getLong("analysisid"),
-                                rs.getDouble("pvalue"),
-                                rs.getDouble("logpvalue"),
-                                rs.getString("studyname"),
-                                rs.getString("analysisname"),
-                                rs.getString("datatype"),
-                                rs.getLong("posstart"),
-                                rs.getString("chromosome"),
-                                rs.getString("gene"),
-                                rs.getString("intronexon"),
-                                rs.getLong("recombinationrate"),
-                                rs.getString("regulome")
-                        ])
-            }
-            return results;
-        }finally{
-            rs?.close();
-            stmt?.close();
-        }
-
-        //And again for EQTL
-        stmt = con.prepareStatement(eqtlQuery);
-        stmt.setLong(1, low)
-        stmt.setLong(2, high)
-        stmt.setString(3, String.valueOf(chrom))
-        stmt.setString(4, snpSource)
-
-        rs = stmt.executeQuery();
-
-        try{
-            while(rs.next()){
-                results.push([rs.getString("rsid"),
-                        rs.getLong("resultid"),
-                        rs.getLong("analysisid"),
-                        rs.getDouble("pvalue"),
-                        rs.getDouble("logpvalue"),
-                        rs.getString("studyname"),
-                        rs.getString("analysisname"),
-                        rs.getString("datatype"),
-                        rs.getLong("posstart"),
-                        rs.getString("chromosome"),
-                        rs.getString("gene"),
-                        rs.getString("intronexon"),
-                        rs.getLong("recombinationrate"),
-                        rs.getString("regulome")
-                ])
-            }
-            return results;
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
-    }
-
-    def getRecombinationRatesForGene(String geneSymbol, Long range) {
-        def query = getRecombinationRatesForGeneQuery;
-
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
-
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
-
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(query);
-        stmt.setLong(1, range)
-        stmt.setLong(2, range)
-        stmt.setLong(3, range)
-        stmt.setString(4, geneSymbol)
-
-        rs = stmt.executeQuery();
-
-        def results = []
-        try{
-            while(rs.next()){
-                results.push([rs.getLong("POSITION"), rs.getDouble("RATE")])
-            }
-            return results
-
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
-    }
-
-    def snpSearch(analysisIds, Long range, String rsId, String hgVersion) {
-        def query = snpSearchQuery;
-
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
-
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
-
-        query = query.replace("_analysisIds_", analysisIds.join(","))
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(query);
-        stmt.setLong(1, range)
-        stmt.setLong(2, range)
-        stmt.setString(3, rsId)
-        stmt.setString(4, hgVersion)
-        stmt.setString(5, hgVersion)
-
-        rs = stmt.executeQuery();
-
-        def results = []
-        try{
-            while(rs.next()){
-                results.push([rs.getString("RS_ID"), rs.getLong("CHROM"), rs.getLong("POS"), rs.getDouble("LOG_P_VALUE"), rs.getString("ANALYSIS_NAME"),
-                rs.getString("gene"), rs.getString("exon_intron"), rs.getDouble("recombination_rate"), rs.getString("regulome_score")])
-            }
-            return results
-
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
-    }
-
-    def recombinationRateBySnpQuery = """
+	def recombinationRateBySnpQuery = """
 SELECT chromosome, position, rate, map FROM BIOMART.BIO_RECOMBINATION_RATES
 WHERE POSITION > (SELECT (pos-?) as low FROM DEAPP.DE_RC_SNP_INFO WHERE RS_ID=? and hg_version=?)
 AND POSITION < (SELECT (pos+?) as high FROM DEAPP.DE_RC_SNP_INFO WHERE RS_ID=? and hg_version=?)
 AND CHROMOSOME = (SELECT chrom FROM DEAPP.DE_RC_SNP_INFO WHERE RS_ID=? and hg_version=?) order by position
 """
 
-    def getRecombinationRateBySnp(snp, range, hgVersion) {
-        def query = recombinationRateBySnpQuery;
+	def getRecombinationRateBySnp(snp, range, hgVersion) {
+		def query = recombinationRateBySnpQuery;
 
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
 
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
 
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(query);
-        stmt.setLong(1, range)
-        stmt.setString(2, snp)
-        stmt.setString(3, hgVersion)
-        stmt.setLong(4, range)
-        stmt.setString(5, snp)
-        stmt.setString(6, hgVersion)
-        stmt.setString(7, snp)
-        stmt.setString(8, hgVersion)
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(query);
+		stmt.setLong(1, range)
+		stmt.setString(2, snp)
+		stmt.setString(3, hgVersion)
+		stmt.setLong(4, range)
+		stmt.setString(5, snp)
+		stmt.setString(6, hgVersion)
+		stmt.setString(7, snp)
+		stmt.setString(8, hgVersion)
 
-        rs = stmt.executeQuery();
+		rs = stmt.executeQuery();
 
-        def results = []
-        try{
-            while(rs.next()){
-                results.push([rs.getString("chromosome"), rs.getLong("position"), rs.getDouble("rate"), rs.getDouble("map")])
-            }
-            return results
+		def results = []
+		try{
+			while(rs.next()){
+				results.push([
+					rs.getString("chromosome"),
+					rs.getLong("position"),
+					rs.getDouble("rate"),
+					rs.getDouble("map")
+				])
+			}
+			return results
 
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
 
 
-    }
+	}
 }

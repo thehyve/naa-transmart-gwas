@@ -32,13 +32,13 @@ import com.recomdata.transmart.data.export.util.FileWriterUtil
 
 class RegionSearchService {
 
-    boolean transactional = true
+	boolean transactional = true
 
-    def dataSource
-    def grailsApplication
-    def config = ConfigurationHolder.config
+	def dataSource
+	def grailsApplication
+	def config = ConfigurationHolder.config
 
-    def geneLimitsSqlQuery = """
+	def geneLimitsSqlQuery = """
 
 	SELECT max(snpinfo.pos) as high, min(snpinfo.pos) as low, min(snpinfo.chrom) as chrom FROM SEARCHAPP.SEARCH_KEYWORD
 	INNER JOIN bio_marker bm ON bm.BIO_MARKER_ID = SEARCH_KEYWORD.BIO_DATA_ID
@@ -48,7 +48,7 @@ class RegionSearchService {
 
 	"""
 
-    def geneLimitsHg19SqlQuery = """
+	def geneLimitsHg19SqlQuery = """
 
 	SELECT ginfo.chrom_stop as high, ginfo.chrom_start as low, ginfo.chrom
 	FROM SEARCHAPP.SEARCH_KEYWORD
@@ -59,18 +59,18 @@ class RegionSearchService {
 	"""
 
 
-//    def geneLimitsSqlQuery = """
-//    SELECT CHROM_STOP as high, CHROM_START as low, CHROM FROM DEAPP.DE_GENE_INFO
-//    WHERE SEARCH_KEYWORD_ID=?
-//    """
-    def genesForSnpQuery = """
+	//    def geneLimitsSqlQuery = """
+	//    SELECT CHROM_STOP as high, CHROM_START as low, CHROM FROM DEAPP.DE_GENE_INFO
+	//    WHERE SEARCH_KEYWORD_ID=?
+	//    """
+	def genesForSnpQuery = """
 	
 	SELECT DISTINCT(GENE_NAME) as BIO_MARKER_NAME FROM DE_SNP_GENE_MAP
 	WHERE SNP_NAME = ?
 	
 	"""
 
-    def snpLimitsSqlQuery = """
+	def snpLimitsSqlQuery = """
 	
 	SELECT max(snpinfo.pos) as high, min(snpinfo.pos) as low, min(snpinfo.chrom) as chrom FROM SEARCHAPP.SEARCH_KEYWORD sk
 	INNER JOIN DEAPP.DE_RC_SNP_INFO snpinfo ON sk.keyword = snpinfo.rs_id
@@ -78,12 +78,16 @@ class RegionSearchService {
 	
 	"""
 
-    def analysisNameSqlQuery = """
+	def analysisNameSqlQuery = """
 	SELECT DATA.bio_assay_analysis_id as id, DATA.analysis_name as name
 	FROM BIOMART.bio_assay_analysis DATA WHERE 1=1 
 """
-    //Query with mad Oracle pagination
-    def gwasSqlQuery = """
+	def studyNameSqlQuery = """
+	SELECT DATA.bio_assay_analysis_id as id, DATA.etl_id as study
+	FROM BIOMART.bio_assay_analysis DATA WHERE 1=1 
+"""
+	//Query with mad Oracle pagination
+	def gwasSqlQuery = """
 		SELECT a.*
 		  FROM (SELECT   _analysisSelect_ info.chrom AS chrom,
 		                 info.pos AS pos, info.gene_name AS rsgene,
@@ -97,8 +101,8 @@ class RegionSearchService {
 		                 JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
 		                 WHERE 1=1
 	"""
-    //changed query
-    def gwasHg19SqlQuery = """
+	//changed query
+	def gwasHg19SqlQuery = """
 				SELECT a.*
 	  FROM (SELECT   _analysisSelect_ info.chrom AS chrom,
 					 info.pos AS pos, info.rsgene AS rsgene,
@@ -113,7 +117,7 @@ class RegionSearchService {
 					 WHERE 1=1
 	
 """
-    def eqtlSqlQuery = """
+	def eqtlSqlQuery = """
 		SELECT a.*
 		  FROM (SELECT   _analysisSelect_ info.chrom AS chrom,
 		                 info.pos AS pos, info.gene_name AS rsgene,
@@ -128,7 +132,7 @@ class RegionSearchService {
 		                 WHERE 1=1
 	"""
 
-    def eqtlHg19SqlQuery = """
+	def eqtlHg19SqlQuery = """
 	SELECT a.*
 	  FROM (SELECT   _analysisSelect_ info.chrom AS chrom,
 					 info.pos AS pos, info.rsgene AS rsgene,
@@ -143,128 +147,128 @@ class RegionSearchService {
 					 WHERE 1=1
 """
 
-    def gwasSqlCountQuery = """
+	def gwasSqlCountQuery = """
 		SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Gwas data 
 	     JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	     WHERE 1=1
 	"""
 
-    def gwasHg19SqlCountQuery = """
+	def gwasHg19SqlCountQuery = """
 	SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Gwas data
 	 JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	 WHERE 1=1
 """
-    def eqtlSqlCountQuery = """
+	def eqtlSqlCountQuery = """
 		SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Eqtl data
 	     JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	     WHERE 1=1
     """
-    def eqtlHg19SqlCountQuery = """
+	def eqtlHg19SqlCountQuery = """
 	SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Eqtl data
 	 JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	 WHERE 1=1
 """
-    def getGeneLimits(Long searchId, String ver, Long flankingRegion) {
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
+	def getGeneLimits(Long searchId, String ver, Long flankingRegion) {
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
 
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
 
-        //Prepare the SQL statement.
+		//Prepare the SQL statement.
 
-        if (ver.equals('19')) {
-            stmt = con.prepareStatement(geneLimitsHg19SqlQuery);
-            stmt.setLong(1, searchId);
-        }
-        else {
-            stmt = con.prepareStatement(geneLimitsSqlQuery);
-            stmt.setLong(1, searchId);
-            stmt.setString(2, ver);
-        }
-        rs = stmt.executeQuery();
+		if (ver.equals('19')) {
+			stmt = con.prepareStatement(geneLimitsHg19SqlQuery);
+			stmt.setLong(1, searchId);
+		}
+		else {
+			stmt = con.prepareStatement(geneLimitsSqlQuery);
+			stmt.setLong(1, searchId);
+			stmt.setString(2, ver);
+		}
+		rs = stmt.executeQuery();
 
-        try{
-            if(rs.next()){
-                def high = rs.getLong("HIGH");
-                def low = rs.getLong("LOW");
-                def chrom = rs.getString("CHROM");
-                if (flankingRegion) {
-                    high += flankingRegion
-                    low -= flankingRegion
-                }
-                return [low: low, high:high, chrom: chrom]
-            }
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
-    }
+		try{
+			if(rs.next()){
+				def high = rs.getLong("HIGH");
+				def low = rs.getLong("LOW");
+				def chrom = rs.getString("CHROM");
+				if (flankingRegion) {
+					high += flankingRegion
+					low -= flankingRegion
+				}
+				return [low: low, high:high, chrom: chrom]
+			}
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
 
-    def getGenesForSnp(String snp) {
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
+	def getGenesForSnp(String snp) {
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
 
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
 
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(genesForSnpQuery);
-        stmt.setString(1, snp);
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(genesForSnpQuery);
+		stmt.setString(1, snp);
 
-        rs = stmt.executeQuery();
+		rs = stmt.executeQuery();
 
-        def results = []
-        try{
-            while(rs.next()){
-                results.push(rs.getString("BIO_MARKER_NAME"))
-            }
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
+		def results = []
+		try{
+			while(rs.next()){
+				results.push(rs.getString("BIO_MARKER_NAME"))
+			}
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
 
-        return results;
-    }
+		return results;
+	}
 
-    def getSnpLimits(Long searchId, String ver, Long flankingRegion) {
-        //Create objects we use to form JDBC connection.
-        def con, stmt, rs = null;
+	def getSnpLimits(Long searchId, String ver, Long flankingRegion) {
+		//Create objects we use to form JDBC connection.
+		def con, stmt, rs = null;
 
-        //Grab the connection from the grails object.
-        con = dataSource.getConnection()
+		//Grab the connection from the grails object.
+		con = dataSource.getConnection()
 
-        //Prepare the SQL statement.
-        stmt = con.prepareStatement(snpLimitsSqlQuery);
-        stmt.setLong(1, searchId);
-        stmt.setString(2, ver);
+		//Prepare the SQL statement.
+		stmt = con.prepareStatement(snpLimitsSqlQuery);
+		stmt.setLong(1, searchId);
+		stmt.setString(2, ver);
 
-        rs = stmt.executeQuery();
+		rs = stmt.executeQuery();
 
-        try{
-            if(rs.next()){
-                def high = rs.getLong("HIGH");
-                def low = rs.getLong("LOW");
-                def chrom = rs.getString("CHROM");
-                if (flankingRegion) {
-                    high += flankingRegion;
-                    low -= flankingRegion;
-                }
-                return [low: low, high:high, chrom: chrom]
-            }
-        }finally{
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
-    }
+		try{
+			if(rs.next()){
+				def high = rs.getLong("HIGH");
+				def low = rs.getLong("LOW");
+				def chrom = rs.getString("CHROM");
+				if (flankingRegion) {
+					high += flankingRegion;
+					low -= flankingRegion;
+				}
+				return [low: low, high:high, chrom: chrom]
+			}
+		}finally{
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+	}
 	def BigDecimal log10(BigDecimal b, int dp)
 	{
 		final int NUM_OF_DIGITS = dp+2; // need to add one to get the right number of dp
-										//  and then add one again to get the next number
-										//  so I can round it correctly.
+		//  and then add one again to get the next number
+		//  so I can round it correctly.
 
 		MathContext mc = new MathContext(NUM_OF_DIGITS, RoundingMode.HALF_EVEN);
 
@@ -302,278 +306,330 @@ class RegionSearchService {
 		ans = ans.round(new MathContext(ans.precision() - ans.scale() + dp, RoundingMode.HALF_EVEN));
 		return ans;
 	}
-    def getAnalysisData(analysisIds, ranges, Long limit, Long offset, Double cutoff, String sortField, String order, String search, String type, geneNames, transcriptGeneNames, doCount) {
+	def getAnalysisData(analysisIds, ranges, Long limit, Long offset, Double cutoff, String sortField, String order, String search, String type, geneNames, transcriptGeneNames, doCount) {
 
-        def con, stmt, rs = null;
-        con = dataSource.getConnection()
-        StringBuilder queryCriteria = new StringBuilder();
-        def analysisQuery
-        def countQuery
-        StringBuilder regionList = new StringBuilder();
-        def analysisQCriteria = new StringBuilder();
-        def analysisNameQuery = analysisNameSqlQuery;
-        def hg19only = false;
+		def con, stmt, rs = null;
+		con = dataSource.getConnection()
+		StringBuilder queryCriteria = new StringBuilder();
+		def analysisQuery
+		def countQuery
+		StringBuilder regionList = new StringBuilder();
+		def analysisQCriteria = new StringBuilder();
+		def analysisNameQuery = analysisNameSqlQuery;
 
-        def analysisNameMap =[:]
+		def studyNameQuery=studyNameSqlQuery;
+		def hg19only = false;
 
-        if (ConfigurationHolder.config.com.recomdata.gwas.usehg19table) {
-            if(!ranges){
-                hg19only = true;
-            }else {
-                hg19only = true; // default to true
-                for(range in ranges){
-                    if(range.ver!='19'){
-                        hg19only = false;
-                        break;
-                    }
-                }
-            }
-        }
+		def analysisNameMap =[:]
+		def studyNameMap =[:]
 
-        if (type.equals("gwas")) {
-            analysisQuery = gwasSqlQuery
-            countQuery = gwasSqlCountQuery
-            if(hg19only){ // for hg19, special query
-                analysisQuery = gwasHg19SqlQuery;
-                countQuery = gwasHg19SqlCountQuery
-            }
-        }
-        else if (type.equals("eqtl")) {
-            analysisQuery = eqtlSqlQuery
-            countQuery = eqtlSqlCountQuery
-            if(hg19only){
-                analysisQuery = eqtlHg19SqlQuery
-                countQuery = eqtlHg19SqlCountQuery
-            }
-        }
-        else {
-            throw new Exception("Unrecognized data type")
-        }
+		if (ConfigurationHolder.config.com.recomdata.gwas.usehg19table) {
+			if(!ranges){
+				hg19only = true;
+			}else {
+				hg19only = true; // default to true
+				for(range in ranges){
+					if(range.ver!='19'){
+						hg19only = false;
+						break;
+					}
+				}
+			}
+		}
 
-        def rangesDone = 0;
+		if (type.equals("gwas")) {
+			analysisQuery = gwasSqlQuery
+			countQuery = gwasSqlCountQuery
+			if(hg19only){ // for hg19, special query
+				analysisQuery = gwasHg19SqlQuery;
+				countQuery = gwasHg19SqlCountQuery
+			}
+		}
+		else if (type.equals("eqtl")) {
+			analysisQuery = eqtlSqlQuery
+			countQuery = eqtlSqlCountQuery
+			if(hg19only){
+				analysisQuery = eqtlHg19SqlQuery
+				countQuery = eqtlHg19SqlCountQuery
+			}
+		}
+		else {
+			throw new Exception("Unrecognized data type")
+		}
 
-        //if (!ranges) {
-        //If no ranges, force HG19
-        //	regionList.append("hg_version='19'") -- we have a special sql for hg19
-        //}
-        //else {
-        if(ranges!=null){
-            for (range in ranges) {
-                if (rangesDone != 0) {
-                    regionList.append(" OR ")
-                }
-                //Chromosome
-                if (range.chromosome != null) {
-                    if (range.low == 0 && range.high == 0) {
-                        regionList.append("(info.chrom = '${range.chromosome}' ")
-                    }
-                    else {
-                        regionList.append("(info.pos >= ${range.low} AND info.pos <= ${range.high} AND info.chrom = '${range.chromosome}' ")
-                    }
+		def rangesDone = 0;
 
-                    if(hg19only== false) {
-                        regionList.append("  AND info.hg_version = '${range.ver}' ")
-                    }
-                    regionList.append(")");
-                }
-                //Gene
-                else {
-                    regionList.append("(info.pos >= ${range.low} AND info.pos <= ${range.high} ")
-                    if(hg19only== false) {
-                        regionList.append("  AND info.hg_version = '${range.ver}' ")
-                    }
-                    regionList.append(")")
-                }
-                rangesDone++
-            }
-        }
+		//if (!ranges) {
+		//If no ranges, force HG19
+		//	regionList.append("hg_version='19'") -- we have a special sql for hg19
+		//}
+		//else {
+		if(ranges!=null){
+			for (range in ranges) {
+				if (rangesDone != 0) {
+					regionList.append(" OR ")
+				}
+				//Chromosome
+				if (range.chromosome != null) {
+					if (range.low == 0 && range.high == 0) {
+						regionList.append("(info.chrom = '${range.chromosome}' ")
+					}
+					else {
+						regionList.append("(info.pos >= ${range.low} AND info.pos <= ${range.high} AND info.chrom = '${range.chromosome}' ")
+					}
 
-        //Add analysis IDs
-        if (analysisIds) {
-            analysisQCriteria.append(" AND data.BIO_ASSAY_ANALYSIS_ID IN (" + analysisIds[0]);
-            for (int i = 1; i < analysisIds.size(); i++) {
-                analysisQCriteria.append(", " + analysisIds[i]);
-            }
-            analysisQCriteria.append(") ")
-            queryCriteria.append(analysisQCriteria.toString())
+					if(hg19only== false) {
+						regionList.append("  AND info.hg_version = '${range.ver}' ")
+					}
+					regionList.append(")");
+				}
+				//Gene
+				else {
+					regionList.append("(info.pos >= ${range.low} AND info.pos <= ${range.high} ")
+					if(hg19only== false) {
+						regionList.append("  AND info.hg_version = '${range.ver}' ")
+					}
+					regionList.append(")")
+				}
+				rangesDone++
+			}
+		}
 
-            //Originally we only selected the analysis name if there was a need to (more than one analysis) - but this query is much faster
-            analysisQuery = analysisQuery.replace("_analysisSelect_", "DATA.bio_assay_analysis_id AS analysis_id, ")
-            analysisQuery = analysisQuery.replace("_analysisJoin_", "");
-        }
+		//Add analysis IDs
+		if (analysisIds) {
+			analysisQCriteria.append(" AND data.BIO_ASSAY_ANALYSIS_ID IN (" + analysisIds[0]);
+			for (int i = 1; i < analysisIds.size(); i++) {
+				analysisQCriteria.append(", " + analysisIds[i]);
+			}
+			analysisQCriteria.append(") ")
+			queryCriteria.append(analysisQCriteria.toString())
 
-        //Add gene names
-        if (geneNames) {
-            // quick fix for hg19 only
-            if(hg19only){
-                queryCriteria.append(" AND info.rsgene IN (")
-            }else{
-                queryCriteria.append(" AND info.gene_name IN (");
-            }
-            queryCriteria.append( "'" + geneNames[0] + "'");
-            for (int i = 1; i < geneNames.size(); i++) {
-                queryCriteria.append(", " + "'" + geneNames[i] + "'");
-            }
-            queryCriteria.append(") ")
-        }
+			//Originally we only selected the analysis name if there was a need to (more than one analysis) - but this query is much faster
+			analysisQuery = analysisQuery.replace("_analysisSelect_", "DATA.bio_assay_analysis_id AS analysis_id, ")
+			analysisQuery = analysisQuery.replace("_analysisJoin_", "");
+		}
 
-        else if (type.equals("eqtl") && transcriptGeneNames) {
-            queryCriteria.append(" AND data.gene IN (")
-            queryCriteria.append( "'" + transcriptGeneNames[0] + "'");
-            for (int i = 1; i < transcriptGeneNames.size(); i++) {
-                queryCriteria.append(", " + "'" + transcriptGeneNames[i] + "'");
-            }
-            queryCriteria.append(") ")
-        }
+		//Add gene names
+		if (geneNames) {
+			// quick fix for hg19 only
+			if(hg19only){
+				queryCriteria.append(" AND info.rsgene IN (")
+			}else{
+				queryCriteria.append(" AND info.gene_name IN (");
+			}
+			queryCriteria.append( "'" + geneNames[0] + "'");
+			for (int i = 1; i < geneNames.size(); i++) {
+				queryCriteria.append(", " + "'" + geneNames[i] + "'");
+			}
+			queryCriteria.append(") ")
+		}
 
-
-        if (cutoff) {
-            queryCriteria.append(" AND p_value <= ?");
-        }
-        if (search) {
-            queryCriteria.append(" AND (data.rs_id LIKE '%${search}%'")
-            queryCriteria.append(" OR data.ext_data LIKE '%${search}%'")
-            if(hg19only){
-                queryCriteria.append(" OR info.rsgene LIKE '%${search}%'")
-            }else{
-                queryCriteria.append(" OR info.gene_name LIKE '%${search}%'");
-            }
-            queryCriteria.append(" OR info.pos LIKE '%${search}%'")
-            queryCriteria.append(" OR info.chrom LIKE '%${search}%'")
-            if (type.equals("eqtl")) {
-                queryCriteria.append(" OR data.gene LIKE '%${search}%'")
-            }
-            queryCriteria.append(") ")
-        }
-
-        // handle null regionlist issue
-        // If no regions, default to hg19. If hg19only, we don't need to check this.
-        if(regionList.length()==0){
-            if (hg19only) {
-                regionList.append("1=1")
-            }
-            else {
-                regionList.append("info.hg_version = '19'")
-            }
-        }
-
-        analysisQuery = analysisQuery.replace("_regionlist_", regionList.toString())
-
-        // this is really a hack
-        def sortOrder = sortField?.trim();
-        //println(sortField)
-        if(hg19only){
-            sortOrder = sortOrder.replaceAll("info.gene_name", "info.rsgene");
-
-        }
-        //println("after:"+sortOrder)
-        analysisQuery = analysisQuery.replace("_orderclause_", sortOrder + " " + order)
-        countQuery = countQuery.replace("_regionlist_", regionList.toString())
-
-        // analysis name query
+		else if (type.equals("eqtl") && transcriptGeneNames) {
+			queryCriteria.append(" AND data.gene IN (")
+			queryCriteria.append( "'" + transcriptGeneNames[0] + "'");
+			for (int i = 1; i < transcriptGeneNames.size(); i++) {
+				queryCriteria.append(", " + "'" + transcriptGeneNames[i] + "'");
+			}
+			queryCriteria.append(") ")
+		}
 
 
-        try {
-            def nameQuery = analysisNameQuery + analysisQCriteria.toString();
-            log.debug(nameQuery)
-            stmt = con.prepareStatement(nameQuery)
+		if (cutoff) {
+			queryCriteria.append(" AND p_value <= ?");
+		}
+		if (search) {
+			queryCriteria.append(" AND (data.rs_id LIKE '%${search}%'")
+			queryCriteria.append(" OR data.ext_data LIKE '%${search}%'")
+			if(hg19only){
+				queryCriteria.append(" OR info.rsgene LIKE '%${search}%'")
+			}else{
+				queryCriteria.append(" OR info.gene_name LIKE '%${search}%'");
+			}
+			queryCriteria.append(" OR info.pos LIKE '%${search}%'")
+			queryCriteria.append(" OR info.chrom LIKE '%${search}%'")
+			if (type.equals("eqtl")) {
+				queryCriteria.append(" OR data.gene LIKE '%${search}%'")
+			}
+			queryCriteria.append(") ")
+		}
 
-            rs = stmt.executeQuery();
-            while (rs.next()) {
-                analysisNameMap.put(rs.getLong("id"), rs.getString("name"));
-            }
-        }catch(Exception e){
-            log.error(e.getMessage(),e)
-            throw e;
-        }
-        finally {
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
+		// handle null regionlist issue
+		// If no regions, default to hg19. If hg19only, we don't need to check this.
+		if(regionList.length()==0){
+			if (hg19only) {
+				regionList.append("1=1")
+			}
+			else {
+				regionList.append("info.hg_version = '19'")
+			}
+		}
 
-        //println(analysisNameMap)
-        // data query
-        def finalQuery = analysisQuery + queryCriteria.toString() + "\n) a";
-        if (limit > 0) {
-            finalQuery += " where a.row_nbr between ${offset+1} and ${offset+limit}";
-        }
-        stmt = con.prepareStatement(finalQuery);
+		analysisQuery = analysisQuery.replace("_regionlist_", regionList.toString())
 
-        //stmt.setString(1, sortField)
-        if (cutoff) {
-            stmt.setDouble(1, cutoff);
-        }
+		// this is really a hack
+		def sortOrder = sortField?.trim();
+		//println(sortField)
+		if(hg19only){
+			sortOrder = sortOrder.replaceAll("info.gene_name", "info.rsgene");
 
-        log.debug("Executing: " + finalQuery)
+		}
+		//println("after:"+sortOrder)
+		analysisQuery = analysisQuery.replace("_orderclause_", sortOrder + " " + order)
+		countQuery = countQuery.replace("_regionlist_", regionList.toString())
+
+		// analysis name query
 
 
-        def results = []
-        try{
-            rs = stmt.executeQuery();
-            while(rs.next()){
-                if ((type.equals("gwas"))) {
+		try {
+			def nameQuery = analysisNameQuery + analysisQCriteria.toString();
+			log.debug(nameQuery)
+			stmt = con.prepareStatement(nameQuery)
+
+			rs = stmt.executeQuery();
+			while (rs.next()) {
+				analysisNameMap.put(rs.getLong("id"), rs.getString("name"));
+			}
+		}catch(Exception e){
+			log.error(e.getMessage(),e)
+			throw e;
+		}
+		finally {
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+
+		// study name query
+
+
+		try {
+			def nameSQuery = studyNameQuery + analysisQCriteria.toString();
+			log.debug("Study:"+nameSQuery)
+			stmt = con.prepareStatement(nameSQuery)
+
+			rs = stmt.executeQuery();
+			while (rs.next()) {
+				studyNameMap.put(rs.getLong("id"), rs.getString("study"));
+			}
+		}catch(Exception e){
+			log.error(e.getMessage(),e)
+			throw e;
+		}
+		finally {
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+
+		//println(analysisNameMap)
+		// data query
+		def finalQuery = analysisQuery + queryCriteria.toString() + "\n) a";
+		if (limit > 0) {
+			finalQuery += " where a.row_nbr between ${offset+1} and ${offset+limit}";
+		}
+		stmt = con.prepareStatement(finalQuery);
+
+		//stmt.setString(1, sortField)
+		if (cutoff) {
+			stmt.setDouble(1, cutoff);
+		}
+
+		log.debug("Executing: " + finalQuery)
+
+
+		def results = []
+		try{
+			rs = stmt.executeQuery();
+			while(rs.next()){
+				if ((type.equals("gwas"))) {
 					def logp=rs.getDouble("logpvalue");
 					if (logp == Double.POSITIVE_INFINITY )
 					{
-						logp=0 - log10(new BigDecimal(rs.getString("p_value_char")),10);					
-							
+						logp=0 - log10(new BigDecimal(rs.getString("p_value_char")),10);
+
 					}
-					results.push([rs.getString("rsid"), rs.getDouble("pvalue"),logp, rs.getString("extdata"),analysisNameMap.get( rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome")]);
-                }
-                else {
-                    results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"), analysisNameMap.get(rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("gene")]);
-                }
-            }
-        }
-        catch(Exception e){
-            log.error(e.getMessage(), e);
-        }
-        finally{
-            rs?.close();
-            stmt?.close();
-        }
+					results.push([
+						rs.getString("rsid"),
+						rs.getDouble("pvalue"),
+						logp,
+						rs.getString("extdata"),
+						analysisNameMap.get( rs.getLong("analysis_id")),
+						studyNameMap.get(rs.getLong("analysis_id")),
+						rs.getString("rsgene"),
+						rs.getString("chrom"),
+						rs.getLong("pos"),
+						rs.getString("intronexon"),
+						rs.getString("recombinationrate"),
+						rs.getString("regulome")
+					]);
+				}
+				else {
+					results.push([
+						rs.getString("rsid"),
+						rs.getDouble("pvalue"),
+						rs.getDouble("logpvalue"),
+						rs.getString("extdata"),
+						analysisNameMap.get( rs.getLong("analysis_id")),
+						studyNameMap.get(rs.getLong("analysis_id")),
+						rs.getString("rsgene"),
+						rs.getString("chrom"),
+						rs.getLong("pos"),
+						rs.getString("intronexon"),
+						rs.getString("recombinationrate"),
+						rs.getString("regulome"),
+						rs.getString("gene")
+					]);
+				}
+			}
+		}
+		catch(Exception e){
+			log.error(e.getMessage(), e);
+		}
+		finally{
+			rs?.close();
+			stmt?.close();
+		}
 
-        //Count - skip if we're not to do this (loading results from cache)
-        def total = 0;
-        if (doCount) {
-            try {
-                def finalCountQuery = countQuery + queryCriteria.toString();
-                stmt = con.prepareStatement(finalCountQuery)
-                if (cutoff) {
-                    stmt.setDouble(1, cutoff);
-                }
+		//Count - skip if we're not to do this (loading results from cache)
+		def total = 0;
+		if (doCount) {
+			try {
+				def finalCountQuery = countQuery + queryCriteria.toString();
+				stmt = con.prepareStatement(finalCountQuery)
+				if (cutoff) {
+					stmt.setDouble(1, cutoff);
+				}
 
-                log.debug("Executing count query: " + finalQuery)
+				log.debug("Executing count query: " + finalQuery)
 
-                rs = stmt.executeQuery();
-                if (rs.next()) {
-                    total = rs.getLong("TOTAL")
-                }
-            }
-            catch (Exception e) {
-                log.error(e, e.getMessage())
-                throw e;
-            }
-            finally {
-                rs?.close();
-                stmt?.close();
-                con?.close();
-            }
-        }
+				rs = stmt.executeQuery();
+				if (rs.next()) {
+					total = rs.getLong("TOTAL")
+				}
+			}
+			catch (Exception e) {
+				log.error(e, e.getMessage())
+				throw e;
+			}
+			finally {
+				rs?.close();
+				stmt?.close();
+				con?.close();
+			}
+		}
 
-        return [results: results, total: total];
-    }
+		return [results: results, total: total];
+	}
 
-    def quickQueryGwas = """
+	def quickQueryGwas = """
 	
 		SELECT analysis, chrom, pos, rsgene, rsid, pvalue, logpvalue, extdata, intronexon, recombinationrate, regulome FROM biomart.BIO_ASY_ANALYSIS_GWAS_TOP50
 		WHERE analysis = ?
 		ORDER BY pvalue
 	
 	"""
-    // changed ORDER BY rnum by pvalue
-    def quickQueryEqtl = """
+	// changed ORDER BY rnum by pvalue
+	def quickQueryEqtl = """
 	
 		SELECT analysis, chrom, pos, rsgene, rsid, pvalue, logpvalue, extdata, intronexon, recombinationrate, regulome, gene FROM biomart.BIO_ASY_ANALYSIS_EQTL_TOP50
 		WHERE analysis = ?
@@ -581,50 +637,101 @@ class RegionSearchService {
 	
 	"""
 
-    def getQuickAnalysisDataByName(analysisName, type) {
+	def getQuickAnalysisDataByName(analysisName, type) {
 
-        def con, stmt, rs = null;
-        con = dataSource.getConnection()
-        StringBuilder queryCriteria = new StringBuilder();
-        def quickQuery
+		def con, stmt, rs = null;
+		con = dataSource.getConnection()
+		StringBuilder queryCriteria = new StringBuilder();
+		StringBuilder studyQuery=new StringBuilder();
+		studyQuery.append(studyNameSqlQuery);
+		studyQuery.append(" and analysis_name = '"+ analysisName+"'");
+		String study=""
+		
+		try {
+			log.debug("Study:"+studyQuery)
+			stmt = con.prepareStatement(studyQuery.toString())
 
-        if (type.equals("eqtl")) {
-            quickQuery = quickQueryEqtl
-        }
-        else {
-            quickQuery = quickQueryGwas
-        }
+			rs = stmt.executeQuery();
+			while (rs.next()) {
+				study= rs.getString("study");
+			}
+		}catch(Exception e){
+			log.error(e.getMessage(),e)
+			throw e;
+		}
+		finally {
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
 
-        def results = []
-        try {
-            stmt = con.prepareStatement(quickQuery)
-            stmt.setString(1, analysisName);
 
-            rs = stmt.executeQuery();
-            if (type.equals("eqtl")) {
-                while(rs.next()){
-                    results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"), rs.getString("analysis"), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("gene")]);
-                }
-            }
-            else {
-                while(rs.next()){
-                    results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"), rs.getString("analysis"), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome")]);
-                }
-            }
-        }
-        catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
-        finally {
-            rs?.close();
-            stmt?.close();
-            con?.close();
-        }
+		def quickQuery
 
-        println("Returning " + results.size())
-        return [results: results]
+		if (type.equals("eqtl")) {
+			quickQuery = quickQueryEqtl
+		}
+		else {
+			quickQuery = quickQueryGwas
+		}
+		
 
-    }
+		def results = []
+		try {
+			stmt = con.prepareStatement(quickQuery)
+			stmt.setString(1, analysisName);
+
+			rs = stmt.executeQuery();
+			if (type.equals("eqtl")) {
+				while(rs.next()){
+					results.push([
+						rs.getString("rsid"),
+						rs.getDouble("pvalue"),
+						rs.getDouble("logpvalue"),
+						rs.getString("extdata"),
+						rs.getString("analysis"),
+						rs.getString("rsgene"),
+						rs.getString("chrom"),
+						rs.getLong("pos"),
+						rs.getString("intronexon"),
+						rs.getString("recombinationrate"),
+						rs.getString("regulome"),
+						rs.getString("gene")
+					]);
+				}
+			}
+			else {
+				while(rs.next()){
+					results.push([
+						rs.getString("rsid"),
+						rs.getDouble("pvalue"),
+						rs.getDouble("logpvalue"),
+						rs.getString("extdata"),
+						rs.getString("analysis"),
+						study,
+						rs.getString("rsgene"),
+						rs.getString("chrom"),
+						rs.getLong("pos"),
+						rs.getString("intronexon"),
+						rs.getString("recombinationrate"),
+						rs.getString("regulome")
+					]);
+				}
+			}
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
+		finally {
+			rs?.close();
+			stmt?.close();
+			con?.close();
+		}
+
+		println("Returning " + results.size())
+		return [results: results]
+
+	}
 
 }
