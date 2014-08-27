@@ -694,12 +694,12 @@ class GwasSearchController {
 		def secObjs=getExperimentSecureStudyList()
 		def analyses = bio.BioAssayAnalysis.executeQuery("select id, name, etlId from BioAssayAnalysis b order by b.name")
 		analyses=analyses.findAll{!secObjs.containsKey(it[2]) || !gwasWebService.getGWASAccess(it[2], user).equals("Locked") }
-		analyses=analyses.findAll {analysisIds.contains(it[0])}
+		analyses=analyses.findAll {analysisIds.contains(it[0])} // get intersection of all analyses id and allowed ids
 		
-		def allowedAnalysisIds = []
+		def allowedAnalysisIds = [] // will be pused to his temporary list
 		
-		analyses.each { allowedAnalysisIds.add(it[0])}
-		analysisIds = allowedAnalysisIds
+		analyses.each { allowedAnalysisIds.add(it[0])} // fill list with ids from analyses object
+		analysisIds = allowedAnalysisIds // replace all analysis ids with intersection ids
 
 		session['filterTableView'] = filter
 
