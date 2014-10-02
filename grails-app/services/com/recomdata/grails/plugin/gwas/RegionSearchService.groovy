@@ -690,6 +690,7 @@ class RegionSearchService {
 						rs.getDouble("logpvalue"),
 						rs.getString("extdata"),
 						rs.getString("analysis"),
+						study,
 						rs.getString("rsgene"),
 						rs.getString("chrom"),
 						rs.getLong("pos"),
