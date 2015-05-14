@@ -1,0 +1,12 @@
+/.idea/
+/target/
+*.out
+*.iml
+.svn/
+# - Eclipse
+.settings
+.classpath
+.project
+eclipse-target
+
+
