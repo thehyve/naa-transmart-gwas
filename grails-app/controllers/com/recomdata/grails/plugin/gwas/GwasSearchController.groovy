@@ -729,8 +729,19 @@ class GwasSearchController {
         if (search != null) { filter.search = search }
 
         def analysisIds = session['solrAnalysisIds']
+		// following code will limit analysis ids to ones that the user is allowed to access
+		def user=AuthUser.findByUsername(springSecurityService.getPrincipal().username)
+		def secObjs=getExperimentSecureStudyList()
+		def analyses = BioAssayAnalysis.executeQuery("select id, name, etlId from BioAssayAnalysis b order by b.name")
+		analyses=analyses.findAll{!secObjs.containsKey(it[2]) || !gwasWebService.getGWASAccess(it[2], user).equals("Locked") }
+		analyses=analyses.findAll {analysisIds.contains(it[0])} // get intersection of all analyses id and allowed ids
 
-        session['filterTableView'] = filter
+		def allowedAnalysisIds = [] // will be pused to his temporary list
+		
+		analyses.each { allowedAnalysisIds.add(it[0])} // fill list with ids from analyses object
+		analysisIds = allowedAnalysisIds // replace all analysis ids with intersection ids
+		
+        //session['filterTableView'] = filter
 
 /*		if (analysisIds.size() >= 100) {
 			render(text: "<p>The table view cannot be used with more than 100 analyses (${analysisIds.size()} analyses in current search results). Narrow down your results by adding filters.</p>")
@@ -857,14 +868,20 @@ class GwasSearchController {
                     }
                 }
             }
-            else if (s.startsWith("GENESIG")) {
-                //Expand regions to genes and get their limits
-                s = s.substring(8)
+            else if (s.startsWith("GENESIG") || s.startsWith("GENELIST")  ) {
+                
+				while (s.startsWith("GENELIST")) {
+					s = s.substring(9)
+				} 
+				
+				while (s.startsWith("GENESIG")) {
+					s = s.substring(8)
+				}
                 def sigIds = s.split("\\|")
                 for (sigId in sigIds) {
 
-                    def sigSearchKeyword = SearchKeyword.get(sigId as long)
-                    def sig = GeneSignature.get(sigSearchKeyword.bioDataId)
+                    //def sigSearchKeyword = SearchKeyword.get(sigId as long)
+                    def sig = GeneSignature.get(sigId as long)// sigSearchKeyword.bioDataId)
                     def sigItems = GeneSignatureItem.createCriteria().list() {
                         eq('geneSignature', sig)
                         or {
@@ -907,7 +924,7 @@ class GwasSearchController {
                 def geneIds = s.split("\\|")
                 for (geneString in geneIds) {
                     def geneSearchItem = SearchKeyword.findByUniqueId(geneString)
-		    def geneId = geneSearchItem.id 
+					def geneId = geneSearchItem.id 
                     def limits = regionSearchService.getGeneLimits(geneId, '19', 0L)
                     regions.push([gene: geneId, chromosome: limits.get('chrom'), low: limits.get('low'), high: limits.get('high'), ver: "19"])
                 }
@@ -917,6 +934,8 @@ class GwasSearchController {
                 s = s.substring(4)
                 def rsIds = s.split("\\|")
                 for (rsId in rsIds) {
+                	//def snpSearchItem = SearchKeyword.findByUniqueId(rsId)
+        			//def snpId = snpSearchItem.id 
                     def limits = regionSearchService.getSnpLimits(rsId as long, '19', 0L)
                     regions.push([gene: rsId, chromosome: limits.get('chrom'), low: limits.get('low'), high: limits.get('high'), ver: "19"])
                 }
@@ -930,14 +949,23 @@ class GwasSearchController {
         def genes = []
 
         for (s in solrSearch) {
-            if (s.startsWith("GENESIG")) {
+            if (s.startsWith("GENESIG")|| s.startsWith("GENELIST"))  {
+				
+				while (s.startsWith("GENELIST")) {
+					s = s.substring(9)
+				} 
+				
+				while (s.startsWith("GENESIG")) {
+					s = s.substring(8)
+				}
+				
                 //Expand regions to genes and get their names
-                s = s.substring(8)
+                //s = s.substring(8)
                 def sigIds = s.split("\\|")
                 for (sigId in sigIds) {
-                    def sigSearchKeyword = SearchKeyword.get(sigId as long)
+                    //def sigSearchKeyword = SearchKeyword.get(sigId as long)
                     def sigItems = GeneSignatureItem.createCriteria().list() {
-                        eq('geneSignature', GeneSignature.get(sigSearchKeyword.bioDataId))
+                        eq('geneSignature', GeneSignature.get(sigId))//sigSearchKeyword.bioDataId))
                         like('bioDataUniqueId', 'GENE%')
                     }
                     for (sigItem in sigItems) {
@@ -954,7 +982,9 @@ class GwasSearchController {
                 s = s.substring(5)
                 def geneIds = s.split("\\|")
                 for (geneString in geneIds) {
-                    def geneId = geneString as long
+                    //def geneId = geneString as long
+					def geneSearchItem = SearchKeyword.findByUniqueId(geneString)
+					def geneId = geneSearchItem.id
                     def searchKeyword = SearchKeyword.get(geneId)
                     genes.push(searchKeyword.keyword)
                 }
