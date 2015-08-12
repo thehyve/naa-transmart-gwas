@@ -268,6 +268,9 @@ class GwasSearchController {
         def queryResult
         def analysisData = []
         def totalCount
+		
+		def fieldsNameToIgnoreFromExt_Data = ['BETA', 'STANDARD_ERROR']
+		def fieldsToOmitDisplayIds = []
 
         def columnNames = []
 
@@ -323,11 +326,25 @@ class GwasSearchController {
         if (type.equals("eqtl")) {
             columnNames.add(["sTitle":"Transcript Gene", "sortField":"data.gene"])
         }
-
+		else {	
+			columnNames.add(["sTitle":"Beta", "sortField":"data.beta"])
+			columnNames.add(["sTitle":"Standard Error", "sortField":"data.standard_error"])
+			//columnNames.add(["sTitle":"Effect Allele", "sortField":"data.effect_allele"])
+			//columnNames.add(["sTitle":"Other Allele", "sortField":"data.other_allele"])
+		}
         analysisIndexData.each()
-                {
-                    //Put the index information into a map so we can look it up later.
-                    indexMap[it.field_idx] = it.display_idx
+                {	
+					//Put the index information into a map so we can look it up later.
+					indexMap[it.field_idx] = it.display_idx
+					
+					// Do not add these fields when found since they are already exising as additional fields.
+					if (fieldsNameToIgnoreFromExt_Data.contains(it.field_name)) {
+						fieldsToOmitDisplayIds.add(it.field_idx)
+						return 
+					}
+					
+                    
+                    
 
                     //We need to take the data from the index table and extract the list of column names.
                     columnNames.add(["sTitle":it.field_name])
@@ -352,6 +369,12 @@ class GwasSearchController {
                         //Loop over the elements in the index map.
                         indexMap.each()
                                 {
+									
+									if (fieldsToOmitDisplayIds.contains(it.value)) {
+										counter++;
+										return
+									}
+									
                                     //Reorder the array based on the index table.
                                     //if (it.key-1<newLargeTextField.size())
                                     if (it.key-1<largeTextField?.size())
@@ -370,6 +393,14 @@ class GwasSearchController {
 
                         //Swap around the data types for easy array addition.
                         def finalFields = new ArrayList(Arrays.asList(newLargeTextField));
+						def finalFieldsCleared = new ArrayList();
+						//for (int a = 0; a < finalFields.si)
+						finalFields.eachWithIndex { item, index ->
+							if (item != null && !fieldsToOmitDisplayIds.contains(index+1)) {
+								finalFieldsCleared.add(item)
+							}
+						}
+						
 
                         //Add the non-dynamic meta data fields to the returned data.
                         temporaryList.add(it[4])
@@ -382,12 +413,18 @@ class GwasSearchController {
                         temporaryList.add(it[8])
                         temporaryList.add(it[9])
                         temporaryList.add(it[10])
+						
                         if (type.equals("eqtl")) {
-                            temporaryList.add(it[11])
+                            temporaryList.add(it[15])
                         }
-
+						else {
+							temporaryList.add(it[11])
+							temporaryList.add(it[12])
+							//temporaryList.add(it[13]) // remove effect allele from display
+							//temporaryList.add(it[14]) // remove standard allele from display
+						}
                         //Add the dynamic fields to the returned data.
-                        temporaryList+=finalFields
+                        temporaryList+=finalFieldsCleared
 
                         returnedAnalysisData.add(temporaryList)
                     }
