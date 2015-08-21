@@ -127,7 +127,7 @@ class GwasSearchController {
 								<argument>""" + snpSource + """</argument>
 								<argument>""" + pvalueCutoff + """</argument>
 								<argument>""" + serverUrl + """</argument>
-                                <argument>""" + session.getId() + """</argument>
+                                <argument>""" + user + """</argument>
 							  </application-desc>
 
 							</jnlp>
@@ -268,6 +268,9 @@ class GwasSearchController {
         def queryResult
         def analysisData = []
         def totalCount
+		
+		def fieldsNameToIgnoreFromExt_Data = ['BETA', 'STANDARD_ERROR']
+		def fieldsToOmitDisplayIds = []
 
         def columnNames = []
 
@@ -286,7 +289,7 @@ class GwasSearchController {
         }
         else {
             //Otherwise, run the query and recache the returned data
-			if (sortField.equals('null')) {sortField = 'data.p_value';}
+			if (sortField.equals('null')) {sortField = 'data.log_p_value'; order='desc';}
             queryResult = regionSearchService.getAnalysisData(analysisIds, regions, max, offset, cutoff, sortField, order, search, type, geneNames, transcriptGeneNames, true)
             analysisData = queryResult.results
             totalCount = queryResult.total
@@ -323,11 +326,25 @@ class GwasSearchController {
         if (type.equals("eqtl")) {
             columnNames.add(["sTitle":"Transcript Gene", "sortField":"data.gene"])
         }
-
+		else {	
+			columnNames.add(["sTitle":"Beta", "sortField":"data.beta"])
+			columnNames.add(["sTitle":"Standard Error", "sortField":"data.standard_error"])
+			//columnNames.add(["sTitle":"Effect Allele", "sortField":"data.effect_allele"])
+			//columnNames.add(["sTitle":"Other Allele", "sortField":"data.other_allele"])
+		}
         analysisIndexData.each()
-                {
-                    //Put the index information into a map so we can look it up later.
-                    indexMap[it.field_idx] = it.display_idx
+                {	
+					//Put the index information into a map so we can look it up later.
+					indexMap[it.field_idx] = it.display_idx
+					
+					// Do not add these fields when found since they are already exising as additional fields.
+					if (fieldsNameToIgnoreFromExt_Data.contains(it.field_name)) {
+						fieldsToOmitDisplayIds.add(it.field_idx)
+						return 
+					}
+					
+                    
+                    
 
                     //We need to take the data from the index table and extract the list of column names.
                     columnNames.add(["sTitle":it.field_name])
@@ -352,6 +369,12 @@ class GwasSearchController {
                         //Loop over the elements in the index map.
                         indexMap.each()
                                 {
+									
+									if (fieldsToOmitDisplayIds.contains(it.value)) {
+										counter++;
+										return
+									}
+									
                                     //Reorder the array based on the index table.
                                     //if (it.key-1<newLargeTextField.size())
                                     if (it.key-1<largeTextField?.size())
@@ -370,6 +393,14 @@ class GwasSearchController {
 
                         //Swap around the data types for easy array addition.
                         def finalFields = new ArrayList(Arrays.asList(newLargeTextField));
+						def finalFieldsCleared = new ArrayList();
+						//for (int a = 0; a < finalFields.si)
+						finalFields.eachWithIndex { item, index ->
+							if (item != null && !fieldsToOmitDisplayIds.contains(index+1)) {
+								finalFieldsCleared.add(item)
+							}
+						}
+						
 
                         //Add the non-dynamic meta data fields to the returned data.
                         temporaryList.add(it[4])
@@ -382,12 +413,18 @@ class GwasSearchController {
                         temporaryList.add(it[8])
                         temporaryList.add(it[9])
                         temporaryList.add(it[10])
+						
                         if (type.equals("eqtl")) {
-                            temporaryList.add(it[11])
+                            temporaryList.add(it[15])
                         }
-
+						else {
+							temporaryList.add(it[11])
+							temporaryList.add(it[12])
+							//temporaryList.add(it[13]) // remove effect allele from display
+							//temporaryList.add(it[14]) // remove standard allele from display
+						}
                         //Add the dynamic fields to the returned data.
-                        temporaryList+=finalFields
+                        temporaryList+=finalFieldsCleared
 
                         returnedAnalysisData.add(temporaryList)
                     }
@@ -692,8 +729,19 @@ class GwasSearchController {
         if (search != null) { filter.search = search }
 
         def analysisIds = session['solrAnalysisIds']
+		// following code will limit analysis ids to ones that the user is allowed to access
+		def user=AuthUser.findByUsername(springSecurityService.getPrincipal().username)
+		def secObjs=getExperimentSecureStudyList()
+		def analyses = BioAssayAnalysis.executeQuery("select id, name, etlId from BioAssayAnalysis b order by b.name")
+		analyses=analyses.findAll{!secObjs.containsKey(it[2]) || !gwasWebService.getGWASAccess(it[2], user).equals("Locked") }
+		analyses=analyses.findAll {analysisIds.contains(it[0])} // get intersection of all analyses id and allowed ids
 
-        session['filterTableView'] = filter
+		def allowedAnalysisIds = [] // will be pused to his temporary list
+		
+		analyses.each { allowedAnalysisIds.add(it[0])} // fill list with ids from analyses object
+		analysisIds = allowedAnalysisIds // replace all analysis ids with intersection ids
+		
+        //session['filterTableView'] = filter
 
 /*		if (analysisIds.size() >= 100) {
 			render(text: "<p>The table view cannot be used with more than 100 analyses (${analysisIds.size()} analyses in current search results). Narrow down your results by adding filters.</p>")
@@ -820,14 +868,20 @@ class GwasSearchController {
                     }
                 }
             }
-            else if (s.startsWith("GENESIG")) {
-                //Expand regions to genes and get their limits
-                s = s.substring(8)
+            else if (s.startsWith("GENESIG") || s.startsWith("GENELIST")  ) {
+                
+				while (s.startsWith("GENELIST")) {
+					s = s.substring(9)
+				} 
+				
+				while (s.startsWith("GENESIG")) {
+					s = s.substring(8)
+				}
                 def sigIds = s.split("\\|")
                 for (sigId in sigIds) {
 
-                    def sigSearchKeyword = SearchKeyword.get(sigId as long)
-                    def sig = GeneSignature.get(sigSearchKeyword.bioDataId)
+                    //def sigSearchKeyword = SearchKeyword.get(sigId as long)
+                    def sig = GeneSignature.get(sigId as long)// sigSearchKeyword.bioDataId)
                     def sigItems = GeneSignatureItem.createCriteria().list() {
                         eq('geneSignature', sig)
                         or {
@@ -870,7 +924,7 @@ class GwasSearchController {
                 def geneIds = s.split("\\|")
                 for (geneString in geneIds) {
                     def geneSearchItem = SearchKeyword.findByUniqueId(geneString)
-		    def geneId = geneSearchItem.id 
+					def geneId = geneSearchItem.id 
                     def limits = regionSearchService.getGeneLimits(geneId, '19', 0L)
                     regions.push([gene: geneId, chromosome: limits.get('chrom'), low: limits.get('low'), high: limits.get('high'), ver: "19"])
                 }
@@ -880,6 +934,8 @@ class GwasSearchController {
                 s = s.substring(4)
                 def rsIds = s.split("\\|")
                 for (rsId in rsIds) {
+                	//def snpSearchItem = SearchKeyword.findByUniqueId(rsId)
+        			//def snpId = snpSearchItem.id 
                     def limits = regionSearchService.getSnpLimits(rsId as long, '19', 0L)
                     regions.push([gene: rsId, chromosome: limits.get('chrom'), low: limits.get('low'), high: limits.get('high'), ver: "19"])
                 }
@@ -893,14 +949,23 @@ class GwasSearchController {
         def genes = []
 
         for (s in solrSearch) {
-            if (s.startsWith("GENESIG")) {
+            if (s.startsWith("GENESIG")|| s.startsWith("GENELIST"))  {
+				
+				while (s.startsWith("GENELIST")) {
+					s = s.substring(9)
+				} 
+				
+				while (s.startsWith("GENESIG")) {
+					s = s.substring(8)
+				}
+				
                 //Expand regions to genes and get their names
-                s = s.substring(8)
+                //s = s.substring(8)
                 def sigIds = s.split("\\|")
                 for (sigId in sigIds) {
-                    def sigSearchKeyword = SearchKeyword.get(sigId as long)
+                    //def sigSearchKeyword = SearchKeyword.get(sigId as long)
                     def sigItems = GeneSignatureItem.createCriteria().list() {
-                        eq('geneSignature', GeneSignature.get(sigSearchKeyword.bioDataId))
+                        eq('geneSignature', GeneSignature.get(sigId))//sigSearchKeyword.bioDataId))
                         like('bioDataUniqueId', 'GENE%')
                     }
                     for (sigItem in sigItems) {
@@ -917,7 +982,9 @@ class GwasSearchController {
                 s = s.substring(5)
                 def geneIds = s.split("\\|")
                 for (geneString in geneIds) {
-                    def geneId = geneString as long
+                    //def geneId = geneString as long
+					def geneSearchItem = SearchKeyword.findByUniqueId(geneString)
+					def geneId = geneSearchItem.id
                     def searchKeyword = SearchKeyword.get(geneId)
                     genes.push(searchKeyword.keyword)
                 }
@@ -1001,9 +1068,9 @@ class GwasSearchController {
         analysisArr.push(analysisId)
         def query
         if (analysis.assayDataType == "GWAS" || analysis.assayDataType == "Metabolic GWAS" || analysis.assayDataType == "GWAS Fail") {
-            query=regionSearchService.getAnalysisData(analysisArr, regions, max, 0, cutoff, "data.p_value", "asc", null, "gwas", geneNames,transcriptGeneNames,false)
+            query=regionSearchService.getAnalysisData(analysisArr, regions, max, 0, cutoff, "data.log_p_value", "desc", null, "gwas", geneNames,transcriptGeneNames,false)
         } else {
-            query=regionSearchService.getAnalysisData(analysisArr, regions, max, 0, cutoff, "data.p_value", "asc", null, "eqtl", geneNames,transcriptGeneNames,false)
+            query=regionSearchService.getAnalysisData(analysisArr, regions, max, 0, cutoff, "data.log_p_value", "desc", null, "eqtl", geneNames,transcriptGeneNames,false)
         }
 		log.debug("Before the result")
         def dataset = query.results
