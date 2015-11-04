@@ -26,6 +26,7 @@ class RegionSearchService {
 
     def dataSource
     def grailsApplication
+	def inLimit = 1000
 
     def geneLimitsSqlQuery = """
 
@@ -84,7 +85,7 @@ class RegionSearchService {
 						 , DATA.beta as beta, DATA.standard_error as standard_error, DATA.EFFECT_ALLELE as effect_allele, DATA.OTHER_ALLELE as other_allele
 		                 FROM biomart.bio_assay_analysis_gwas DATA
 		                 _analysisJoin_
-		                 JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
+		                 left JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
 		                 WHERE 1=1
 	"""
     //changed query
@@ -100,7 +101,7 @@ class RegionSearchService {
 					 , DATA.beta as beta, DATA.standard_error as standard_error, DATA.EFFECT_ALLELE as effect_allele, DATA.OTHER_ALLELE as other_allele
 					 FROM biomart.bio_assay_analysis_gwas DATA
 					 _analysisJoin_
-					 JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and ( _regionlist_ )
+					 left JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and ( _regionlist_ )
 					 WHERE 1=1
 	
 """
@@ -115,7 +116,7 @@ class RegionSearchService {
 		                 ROW_NUMBER () OVER (ORDER BY _orderclause_) AS row_nbr
 		                 FROM biomart.bio_assay_analysis_eqtl DATA
 		                 _analysisJoin_
-		                 JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
+		                 left JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
 		                 WHERE 1=1
 	"""
 
@@ -130,29 +131,29 @@ class RegionSearchService {
 					 ROW_NUMBER () OVER (ORDER BY _orderclause_) AS row_nbr
 					 FROM biomart.bio_assay_analysis_eqtl DATA
 					 _analysisJoin_
-					 JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
+					 left JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
 					 WHERE 1=1
 """
 
     def gwasSqlCountQuery = """
 		SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Gwas data 
-	     JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
+	     left JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	     WHERE 1=1
 	"""
 
     def gwasHg19SqlCountQuery = """
 	SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Gwas data
-	 JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
+	 left JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	 WHERE 1=1
 """
     def eqtlSqlCountQuery = """
 		SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Eqtl data
-	     JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
+	     left JOIN deapp.de_rc_snp_info info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	     WHERE 1=1
     """
     def eqtlHg19SqlCountQuery = """
 	SELECT COUNT(*) AS TOTAL FROM biomart.Bio_Assay_Analysis_Eqtl data
-	 JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
+	 left JOIN deapp.de_snp_info_hg19_mv info ON DATA.rs_id = info.rs_id and (_regionlist_)
 	 WHERE 1=1
 """
     def getGeneLimits(Long searchId, String ver, Long flankingRegion) {
@@ -340,11 +341,35 @@ class RegionSearchService {
 
         //Add analysis IDs
         if (analysisIds) {
-            analysisQCriteria.append(" AND data.BIO_ASSAY_ANALYSIS_ID IN (" + analysisIds[0]);
-            for (int i = 1; i < analysisIds.size(); i++) {
-                analysisQCriteria.append(", " + analysisIds[i]);
-            }
-            analysisQCriteria.append(") ")
+            analysisQCriteria.append(" AND (data.BIO_ASSAY_ANALYSIS_ID IN (" + analysisIds[0]);
+			if (analysisIds.size() < inLimit) {
+				
+				for (int i = 1; i < analysisIds.size(); i++) {
+					analysisQCriteria.append(", " + analysisIds[i]);
+				}
+			}
+			else {
+				int totalAnalyses = analysisIds.size();
+				
+				for (int i = 1; i < analysisIds.size(); i++) {
+					boolean firstItemInInClause = false;
+					
+					if (i % inLimit == 0 && analysisIds.size() != i) {
+						analysisQCriteria.append(") OR data.BIO_ASSAY_ANALYSIS_ID IN (");
+						firstItemInInClause = true;
+					}
+					if (!firstItemInInClause) {
+						analysisQCriteria.append(", ")
+						firstItemInInClause = false;
+					}
+						
+					analysisQCriteria.append(analysisIds[i]);
+				}
+				
+				
+			}
+            
+            analysisQCriteria.append(") )")
             queryCriteria.append(analysisQCriteria.toString())
 
             //Originally we only selected the analysis name if there was a need to (more than one analysis) - but this query is much faster
@@ -425,6 +450,7 @@ class RegionSearchService {
 
         try {
             def nameQuery = analysisNameQuery + analysisQCriteria.toString();
+			log.info(nameQuery)
             log.debug(nameQuery)
             stmt = con.prepareStatement(nameQuery)
 

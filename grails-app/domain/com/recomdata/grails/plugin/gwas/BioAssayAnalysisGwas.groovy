@@ -43,6 +43,7 @@ class BioAssayAnalysisGwas implements IExcelProfile {
 	Double standardError
 	String effectAllele
 	String otherAllele
+	String passFail
 	
 	
 	static mapping = {
@@ -61,6 +62,7 @@ class BioAssayAnalysisGwas implements IExcelProfile {
 		 standardError column: 'STANDARD_ERROR'
 		 effectAllele column: 'EFFECT_ALLELE'
 		 otherAllele column: 'OTHER_ALLELE' 
+		 passFail column: 'PASS_FAIL'
 		}
 	 	
 	}
