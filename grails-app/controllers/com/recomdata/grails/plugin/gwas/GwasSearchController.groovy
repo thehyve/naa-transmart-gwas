@@ -27,6 +27,7 @@ class GwasSearchController {
     def RModulesOutputRenderService
     def springSecurityService
     def gwasSearchService
+	def inLimit = 1000
 
     /**
      * Renders a UI for selecting regions by gene/RSID or chromosome.
@@ -228,6 +229,14 @@ class GwasSearchController {
             cutoff = getSearchCutoff(session['solrSearchFilter'])
         }
         def transcriptGeneNames = getTranscriptGeneNames(session['solrSearchFilter'])
+		
+		def result = new ArrayList();
+		
+		if (analysisIds.size() >= inLimit) {
+			int intRes = (analysisIds.size() / inLimit)+1;
+			result = analysisIds.collate( analysisIds.size().intdiv( intRes ) )
+		}
+		
         //Find out if we're querying for EQTL, GWAS, or both
         def hasGwas = BioAssayAnalysis.createCriteria().list([max: 1]) {
             or {
@@ -235,12 +244,30 @@ class GwasSearchController {
                 eq('assayDataType', 'Metabolic GWAS')
                 eq('assayDataType','GWAS Fail')
             }
-            'in'('id', analysisIds)
+			if (result.size() > 0) {
+				or {
+					for(int resIt = 0; resIt < result.size(); resIt++){
+						'in'('id', result.get(resIt));
+					}
+				}
+			}
+			else {
+				'in'('id', analysisIds)
+			}
         }
 
         def hasEqtl = BioAssayAnalysis.createCriteria().list([max: 1]) {
             eq('assayDataType', 'EQTL')
-            'in'('id', analysisIds)
+            if (result.size() > 0) {
+				or {
+					for(int resIt = 0; resIt < result.size(); resIt++){
+						'in'('id', result.get(resIt));
+					}
+				}
+			}
+			else {
+				'in'('id', analysisIds)
+			}
         }
 
         def gwasResult
@@ -329,8 +356,8 @@ class GwasSearchController {
 		else {	
 			columnNames.add(["sTitle":"Beta", "sortField":"data.beta"])
 			columnNames.add(["sTitle":"Standard Error", "sortField":"data.standard_error"])
-			//columnNames.add(["sTitle":"Effect Allele", "sortField":"data.effect_allele"])
-			//columnNames.add(["sTitle":"Other Allele", "sortField":"data.other_allele"])
+			columnNames.add(["sTitle":"Effect Allele", "sortField":"data.effect_allele"])
+			columnNames.add(["sTitle":"Other Allele", "sortField":"data.other_allele"])
 		}
         analysisIndexData.each()
                 {	
@@ -420,8 +447,8 @@ class GwasSearchController {
 						else {
 							temporaryList.add(it[11])
 							temporaryList.add(it[12])
-							//temporaryList.add(it[13]) // remove effect allele from display
-							//temporaryList.add(it[14]) // remove standard allele from display
+							temporaryList.add(it[13]) // remove effect allele from display
+							temporaryList.add(it[14]) // remove standard allele from display
 						}
                         //Add the dynamic fields to the returned data.
                         temporaryList+=finalFieldsCleared
