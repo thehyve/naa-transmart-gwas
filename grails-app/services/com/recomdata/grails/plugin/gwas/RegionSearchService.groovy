@@ -113,7 +113,7 @@ class RegionSearchService {
 		                 info.pos AS pos, info.gene_name AS rsgene,
 		                 DATA.rs_id AS rsid, DATA.p_value AS pvalue, DATA.p_value_char AS pvalue_char,
 		                 DATA.log_p_value AS logpvalue, DATA.ext_data AS extdata, DATA.gene as gene,
-		                 info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
+		                 info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome, info.strand as strand 
 		                 ,
 		                 ROW_NUMBER () OVER (ORDER BY _orderclause_) AS row_nbr
 		                 FROM biomart.bio_assay_analysis_eqtl DATA
@@ -128,7 +128,7 @@ class RegionSearchService {
 					 info.pos AS pos, info.rsgene AS rsgene,
 					 DATA.rs_id AS rsid, DATA.p_value AS pvalue, DATA.p_value_char AS pvalue_char,
 					 DATA.log_p_value AS logpvalue, DATA.ext_data AS extdata, DATA.gene as gene,
-					 info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome
+					 info.exon_intron as intronexon, info.recombination_rate as recombinationrate, info.regulome_score as regulome, info.strand as strand 
 					 ,
 					 ROW_NUMBER () OVER (ORDER BY _orderclause_) AS row_nbr
 					 FROM biomart.bio_assay_analysis_eqtl DATA
@@ -508,10 +508,10 @@ class RegionSearchService {
             while(rs.next()){
                 if ((type.equals("gwas"))) {
                     //results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"),analysisNameMap.get( rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome")]);
-					results.push([rs.getString("rsid"), rs.getString("pvalue_char"), rs.getDouble("logpvalue"), rs.getString("extdata"),analysisNameMap.get( rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("beta"), rs.getString("standard_error"), rs.getString("effect_allele"), rs.getString("other_allele")]);
+					results.push([rs.getString("rsid"), rs.getString("pvalue_char"), rs.getDouble("logpvalue"), rs.getString("extdata"),analysisNameMap.get( rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("beta"), rs.getString("standard_error"), rs.getString("effect_allele"), rs.getString("other_allele"), rs.getString("strand")]);
                 }
                 else {
-                    results.push([rs.getString("rsid"), rs.getString("pvalue_char"), rs.getDouble("logpvalue"), rs.getString("extdata"), analysisNameMap.get(rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("gene")]);
+                    results.push([rs.getString("rsid"), rs.getString("pvalue_char"), rs.getDouble("logpvalue"), rs.getString("extdata"), analysisNameMap.get(rs.getLong("analysis_id")), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("gene"), rs.getString("strand")]);
                 }
             }
         }
@@ -555,8 +555,8 @@ class RegionSearchService {
     }
 	// rs.getString("beta"), rs.getString("standard_error"), rs.getString("effect_allele"), rs.getString("other_allele")]);
     def quickQueryGwas = """
-		
-                SELECT analysis, chrom, pos, rsgene, rsid, pvalue, logpvalue, extdata, intronexon, recombinationrate, regulome, beta, standard_error, effect_allele, other_allele, strand FROM biomart.BIO_ASY_ANALYSIS_GWAS_TOP50
+	
+		SELECT analysis, chrom, pos, rsgene, rsid, pvalue, logpvalue, extdata, intronexon, recombinationrate, regulome, beta, standard_error, effect_allele, other_allele, strand FROM biomart.BIO_ASY_ANALYSIS_GWAS_TOP50
 		WHERE analysis = ?
 		ORDER BY logpvalue desc
 	
@@ -594,7 +594,7 @@ class RegionSearchService {
             rs = stmt.executeQuery();
             if (type.equals("eqtl")) {
                 while(rs.next()){
-                    results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"), rs.getString("analysis"), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("gene")]);
+                    results.push([rs.getString("rsid"), rs.getDouble("pvalue"), rs.getDouble("logpvalue"), rs.getString("extdata"), rs.getString("analysis"), rs.getString("rsgene"), rs.getString("chrom"), rs.getLong("pos"), rs.getString("intronexon"), rs.getString("recombinationrate"), rs.getString("regulome"), rs.getString("gene"), rs.getString("strand")]);
                 }
             }
             else {

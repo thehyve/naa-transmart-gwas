@@ -349,12 +349,10 @@ class GwasSearchController {
         columnNames.add(["sTitle":"RS Gene", "sortField":"gmap.gene_name"])
         columnNames.add(["sTitle":"Chromosome", "sortField":"info.chrom"])
         columnNames.add(["sTitle":"Position", "sortField":"info.pos"])
+	columnNames.add(["sTitle":"Strand", "sortField":"info.strand"])
         columnNames.add(["sTitle":"Exon/Intron", "sortField":"info.exon_intron"])
         columnNames.add(["sTitle":"Recombination Rate", "sortField":"info.recombination_rate"])
         columnNames.add(["sTitle":"Regulome Score", "sortField":"info.regulome_score"])
-		if (!type.equals("eqtl")) {
-			columnNames.add(["sTitle":"Strand", "sortField":"info.strand"])
-		}
 		
         if (type.equals("eqtl")) {
             columnNames.add(["sTitle":"Transcript Gene", "sortField":"data.gene"])
@@ -443,22 +441,27 @@ class GwasSearchController {
                         temporaryList.add(it[5])
                         temporaryList.add(it[6])
                         temporaryList.add(it[7])
-                        temporaryList.add(it[8])
+						
+			if (type.equals("eqtl")) {
+                            temporaryList.add(it[12])
+                        }
+			else{
+				temporaryList.add(it[15])
+			}
+                        
+			temporaryList.add(it[8])
                         temporaryList.add(it[9])
                         temporaryList.add(it[10])
-						if (!type.equals("eqtl")) {
-							temporaryList.add(it[16])
-						}
-						
-                        if (type.equals("eqtl")) {
-                            temporaryList.add(it[15])
+                        
+			if (type.equals("eqtl")) {
+                            temporaryList.add(it[11])
                         }
-						else {
-							temporaryList.add(it[11])
-							temporaryList.add(it[12])
-							temporaryList.add(it[13]) // remove effect allele from display
-							temporaryList.add(it[14]) // remove standard allele from display
-						}
+			else {
+				temporaryList.add(it[11])
+				temporaryList.add(it[12])
+				temporaryList.add(it[13]) // remove effect allele from display
+				temporaryList.add(it[14]) // remove standard allele from display
+			}
                         //Add the dynamic fields to the returned data.
                         temporaryList+=finalFieldsCleared
 
