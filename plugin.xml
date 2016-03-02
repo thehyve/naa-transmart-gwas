@@ -1,4 +1,4 @@
-<plugin name='transmart-gwas' version='1.2.2' grailsVersion='2.3.7 &gt; *'>
+<plugin name='transmart-gwas' version='1.2.2-SNAPSHOT' grailsVersion='2.3.7 &gt; *'>
   <author>David Newton</author>
   <authorEmail>davinewton@deloitte.com</authorEmail>
   <title>tranSMART GWAS Plugin</title>
@@ -9,6 +9,7 @@ Plugin to support the display of GWAS data, including eQTL and metabolic GWAS.
   <type>TransmartGwasGrailsPlugin</type>
   <resources>
     <resource>TransmartGwasUrlMappings</resource>
+    <resource>org.transmartproject.gwas.AuditLogFilters</resource>
     <resource>GWASController</resource>
     <resource>com.recomdata.grails.plugin.gwas.GwasSearchController</resource>
     <resource>com.recomdata.grails.plugin.gwas.GwasWebController</resource>
@@ -17,6 +18,7 @@ Plugin to support the display of GWAS data, including eQTL and metabolic GWAS.
     <resource>com.recomdata.grails.plugin.gwas.BioAssayAnalysisGwas</resource>
     <resource>com.recomdata.grails.plugin.gwas.RequiredUploadField</resource>
     <resource>com.recomdata.grails.plugin.gwas.DataUploadService</resource>
+    <resource>com.recomdata.grails.plugin.gwas.ExperimentService</resource>
     <resource>com.recomdata.grails.plugin.gwas.GwasSearchService</resource>
     <resource>com.recomdata.grails.plugin.gwas.GwasWebService</resource>
     <resource>com.recomdata.grails.plugin.gwas.RegionSearchService</resource>
