@@ -98,23 +98,26 @@ class GwasSearchController {
 							  </security>
 							  <update check="always" policy="always"/>
 							  <resources>
-							    <j2se version="1.6+" java-vm-args="-Xmx800m"/>
-
-							    <jar href="./lib/commons-beanutils-1.8.3.jar"/>
-							    <jar href="./lib/commons-beanutils-bean-collections-1.8.3.jar"/>
-							    <jar href="./lib/commons-beanutils-core-1.8.3.jar"/>
-							    <jar href="./lib/commons-codec-1.6.jar"/>
-							    <jar href="./lib/commons-digester3-3.2.jar"/>
-							    <jar href="./lib/commons-lang3-3.1.jar"/>
-							    <jar href="./lib/commons-logging-1.1.1.jar"/>
-							    <jar href="./lib/httpclient-4.0.jar"/>
-							    <jar href="./lib/httpcore-4.2.1.jar"/>
-							    <jar href="./lib/jersey-client-1.4.jar"/>
-							    <jar href="./lib/jersey-core-1.4.jar"/>
-							    <jar href="./lib/jgoodies-common-1.3.1.jar"/>
-							    <jar href="./lib/jgoodies-looks-2.5.1.jar"/>
-							    <jar href="./lib/log4j-1.2.17.jar"/>
-							    <jar href="${jar}"/>
+							    <j2se version="1.7+" java-vm-args="-Xmx800m"/>
+ 
+                                <jar href="./lib/commons-beanutils-1.8.3.jar"/>
+                                <jar href="./lib/commons-beanutils-bean-collections-1.8.3.jar"/>
+                                <jar href="./lib/commons-beanutils-core-1.8.3.jar"/>
+                                <jar href="./lib/commons-codec-1.6.jar"/>
+                                <jar href="./lib/commons-digester3-3.2.jar"/>
+                                <jar href="./lib/commons-lang3-3.1.jar"/>
+                                <jar href="./lib/commons-logging-1.1.1.jar"/>
+                                <jar href="./lib/httpclient-4.0.jar"/>
+                                <jar href="./lib/httpcore-4.2.1.jar"/>
+                                <jar href="./lib/itextpdf-5.3.4.jar"/>
+                                <jar href="./lib/jdom-2.0.6.jar"/>
+                                <jar href="./lib/jersey-client-1.4.jar"/>
+                                <jar href="./lib/jersey-core-1.4.jar"/>
+                                <jar href="./lib/jgoodies-common-1.3.1.jar"/>
+                                <jar href="./lib/jgoodies-looks-2.5.1.jar"/>
+                                <jar href="./lib/log4j-api-2.5.jar"/>
+                                <jar href="./lib/log4j-core-2.5.jar"/>
+                                <jar href="${jar}"/>
 
 							    <property name="jsessionid" value='""" + session.getId() + """'/>
                                 <property name="serviceHost" value='""" + request.getServerName() + """'/>
@@ -346,10 +349,11 @@ class GwasSearchController {
         columnNames.add(["sTitle":"RS Gene", "sortField":"gmap.gene_name"])
         columnNames.add(["sTitle":"Chromosome", "sortField":"info.chrom"])
         columnNames.add(["sTitle":"Position", "sortField":"info.pos"])
+	columnNames.add(["sTitle":"Strand", "sortField":"info.strand"])
         columnNames.add(["sTitle":"Exon/Intron", "sortField":"info.exon_intron"])
         columnNames.add(["sTitle":"Recombination Rate", "sortField":"info.recombination_rate"])
         columnNames.add(["sTitle":"Regulome Score", "sortField":"info.regulome_score"])
-
+		
         if (type.equals("eqtl")) {
             columnNames.add(["sTitle":"Transcript Gene", "sortField":"data.gene"])
         }
@@ -437,19 +441,27 @@ class GwasSearchController {
                         temporaryList.add(it[5])
                         temporaryList.add(it[6])
                         temporaryList.add(it[7])
-                        temporaryList.add(it[8])
+						
+			if (type.equals("eqtl")) {
+                            temporaryList.add(it[12])
+                        }
+			else{
+				temporaryList.add(it[15])
+			}
+                        
+			temporaryList.add(it[8])
                         temporaryList.add(it[9])
                         temporaryList.add(it[10])
-						
-                        if (type.equals("eqtl")) {
-                            temporaryList.add(it[15])
+                        
+			if (type.equals("eqtl")) {
+                            temporaryList.add(it[11])
                         }
-						else {
-							temporaryList.add(it[11])
-							temporaryList.add(it[12])
-							temporaryList.add(it[13]) // remove effect allele from display
-							temporaryList.add(it[14]) // remove standard allele from display
-						}
+			else {
+				temporaryList.add(it[11])
+				temporaryList.add(it[12])
+				temporaryList.add(it[13]) // remove effect allele from display
+				temporaryList.add(it[14]) // remove standard allele from display
+			}
                         //Add the dynamic fields to the returned data.
                         temporaryList+=finalFieldsCleared
 
