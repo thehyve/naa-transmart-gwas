@@ -43,9 +43,7 @@ font-size: 11px;
     overflow: auto;
     padding: 5px 0 5px 5px;
     position: absolute;
-    top: 119px;
-    width: 295px;
-}
+    top: 119px;width: 279px;}
 
 
 #main {
@@ -65,7 +63,7 @@ font-size: 11px;
     top: 55px;
     left: 0px;
     height:27px;
-    overflow: hide;
+    overflow: auto;
     width: 299px;
 }
 #title-filter{

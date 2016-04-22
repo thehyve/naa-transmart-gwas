@@ -6,63 +6,20 @@
         
         <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
         <title>${grailsApplication.config.com.recomdata.searchtool.appTitle}</title>
-        
-        <!-- jQuery CSS for cupertino theme -->
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/jquery/cupertino/jquery-ui-1.8.18.custom.css')}"></link>        
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/jquery/skin/ui.dynatree.css')}"></link>        
-        
-        <!-- Our CSS -->
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/jquery.loadmask.css')}"></link>
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/main.css')}"></link>        
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/colorbox.css')}"></link>
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/jquery/simpleModal.css')}"></link>
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/jquery/multiselect/ui.multiselect.css')}"></link>
-        <link rel="stylesheet" href="${resource(dir:'css',file:'/jquery/multiselect/common.css')}"></link>
-                                
+
         <!-- jQuery JS libraries -->
-        <script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery-1.8.3.min.js')}"></script>   
-	    <script>jQuery.noConflict();</script> 
-        
-        <script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery-ui.min.js')}"></script>
-        
-        <script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.cookie.js')}"></script>   
-        <script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.dynatree.min.js')}"></script>
-        <script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.paging.min.js')}"></script>
-		<script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.loadmask.min.js')}"></script>   
- 		<script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.ajaxmanager.js')}"></script>  
-  		<script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.numeric.js')}"></script>
-  		<script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.colorbox-min.js')}"></script>  
-  		<script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.simplemodal.min.js')}"></script>  
-  		<script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/jquery.dataTables.js')}"></script>
-  		<script type="text/javascript" src="${resource(dir:'js', file:'/facetedSearch/facetedSearchBrowse.js')}"></script>
-  		<script type="text/javascript" src="${resource(dir:'js', file:'/jQuery/ui.multiselect.js')}"></script>
-  		<script type="text/javascript" src="${resource(dir:'js', file:'/help/D2H_ctxt.js')}"></script>
-  		
-  		<g:ifPlugin name="folder-management">
+
+        <r:require module="gwasTab" />
+        <r:script disposition="head">window.jQuery = jQuery.noConflict();</r:script>
+        <r:layoutResources /><%-- XXX: Use template --%>
+
+        <g:ifPlugin name="folder-management">
             <g:render template="/folderManagementUrls" plugin="folderManagement"/>
   			<script type="text/javascript" src="${resource(dir:'js', file:'folderManagement.js', plugin: 'folderManagement')}"></script>
   			<link rel="stylesheet" href="${resource(dir:'css', file:'folderManagement.css', plugin: 'folderManagement')}"></link>        
   		</g:ifPlugin>
 
-
-            <script type="text/javascript" src="${resource(dir:'js', file:'gwas.js', plugin:'transmart-gwas')}"></script>
-            <link rel="stylesheet" href="${resource(dir:'css', file:'gwas.css', plugin: 'transmart-gwas')}"></link>
-  
-  		        
-  		<!--  SVG Export -->
-  		<script type="text/javascript" src="${resource(dir:'js',file:'/svgExport/rgbcolor.js')}"></script>  
-  		  
-	
-        <g:javascript library="prototype" /> 
         
-        <!-- Our JS -->        
-       
-        <script type="text/javascript" src="${resource(dir:'js',file:'/maintabpanel.js')}"></script>
-        
-        <!-- Protovis Visualization library and IE plugin (for lack of SVG support in IE8) -->
-        <script type="text/javascript" src="${resource(dir:'js',file:'/protovis/protovis-r3.2.js')}"></script>
-        <script type="text/javascript" src="${resource(dir:'js',file:'/protovis/protovis-msie.min.js')}"></script> 
-
         <script type="text/javascript" charset="utf-8">
 	        var searchResultsURL = "${createLink([action:'loadSearchResults'])}";
 	        var facetResultsURL = "${createLink([action:'getFacetResults'])}";
@@ -163,8 +120,6 @@
 				$('#save-modal .basic').click(openSaveSearchDialog);
 			});
 		</script>
-
-        <r:layoutResources /><%-- XXX: Use template --%>
     </head>
     <body>
         <div id="header-div">        
