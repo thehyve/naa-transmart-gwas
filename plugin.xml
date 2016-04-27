@@ -1,4 +1,4 @@
-<plugin name='transmart-gwas' version='1.2.2-SNAPSHOT' grailsVersion='2.3.7 &gt; *'>
+<plugin name='transmart-gwas' version='1.2.2' grailsVersion='2.3.7 &gt; *'>
   <author>David Newton</author>
   <authorEmail>davinewton@deloitte.com</authorEmail>
   <title>tranSMART GWAS Plugin</title>
