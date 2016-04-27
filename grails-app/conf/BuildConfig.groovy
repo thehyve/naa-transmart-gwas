@@ -12,8 +12,8 @@ grails.project.dependency.resolution = {
     log "warn" // log level of Ivy resolver, either 'error', 'warn', 'info', 'debug' or 'verbose'
 	legacyResolve false
     repositories {
-      //  grailsPlugins()
-       // grailsHome()
+        grailsPlugins()
+        grailsHome()
         grailsCentral()
 		
 		mavenLocal()
@@ -27,25 +27,27 @@ grails.project.dependency.resolution = {
     }
     dependencies {
         // specify dependencies here under either 'build', 'compile', 'runtime', 'test' or 'provided' scopes eg.
-
+		compile('org.transmartproject:transmart-core-api:1.2.2-SNAPSHOT')
         // runtime 'mysql:mysql-connector-java:5.1.13'
     }
-    plugins {
+	
+	plugins {
 		compile(':resources:1.2.1')
 		//// already included in biomart-domain
-		//compile(':transmart-java:1.2.2-SNAPSHOT')
+		//compile(':transmart-java:1.2.2')
 		//// already included in search-domain
-		//compile(':biomart-domain:1.2.2-SNAPSHOT')
+		compile(':biomart-domain:1.2.2')
 		//// already included in folder-management
-		//compile(':search-domain:1.2.2-SNAPSHOT')
-		compile(':folder-management:1.2.2-SNAPSHOT')
+		//compile(':search-domain:1.2.2')
+		compile(':folder-management:1.2.2')
 		//// already included in folder-management
-		//compile(':transmart-legacy-db:1.2.2-SNAPSHOT')
+		//compile(':transmart-legacy-db:1.2.2')
 		compile(':spring-security-core:2.0-RC2')
 		compile(':quartz:1.0-RC2')
-		compile(':mail:1.0')
 		compile ':cache:1.1.8'
-		runtime ':transmart-core:1.2.2'
-		build(":release:3.1.1")
-    }
+		compile(':mail:1.0')
+		build(":release:3.1.1"
+			) 
+	}
+	
 }
