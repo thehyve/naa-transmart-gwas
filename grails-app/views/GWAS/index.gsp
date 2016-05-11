@@ -19,7 +19,6 @@
   			<link rel="stylesheet" href="${resource(dir:'css', file:'folderManagement.css', plugin: 'folderManagement')}"></link>        
   		</g:ifPlugin>
 
-        
         <script type="text/javascript" charset="utf-8">
 	        var searchResultsURL = "${createLink([action:'loadSearchResults'])}";
 	        var facetResultsURL = "${createLink([action:'getFacetResults'])}";
