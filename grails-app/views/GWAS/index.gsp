@@ -190,9 +190,9 @@
 				<div class='toolbar-item' onclick="jQuery('.analysesopen .analysischeckbox').attr('checked', 'checked'); updateSelectedAnalyses();">Select All Visible Analyses</div>
 				<div class='toolbar-item' onclick="jQuery('.analysesopen .analysischeckbox').removeAttr('checked'); updateSelectedAnalyses();">Unselect All Visible Analyses</div>
 	  			<div class='toolbar-item' onclick="filterSelectedAnalyses();">Add Selected to Filter</div>
-<!--
+
 				<div class='toolbar-item' onclick="exportAnalysisandMail();"> Email Analysis</div>
--->
+
                 <g:ifPlugin name="folder-management">
                     <div class="toolbar-item">
                         <g:render template="/fmFolder/exportCart" model="[exportCount: exportCount]" plugin="folderManagement"/>
@@ -247,7 +247,7 @@
               
         <div id="search-div">         
             <select id="search-categories"></select>                          
-            <input id="search-ac"/></input>                                                          
+            <input id="search-ac" placeholder="type search here"/></input>                                                          
         </div>
        
         <div id="title-search-div" class="ui-widget-header boxtitle">

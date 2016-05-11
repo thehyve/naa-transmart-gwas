@@ -130,7 +130,7 @@ class GWASController {
         // retrieve the descriptions for each analysis
         def results = org.transmart.biomart.BioAssayAnalysis.executeQuery("select b.id AS bioAssayAnalysis, b.shortDescription, b.longDescription, b.name,c.sensitiveDesc, b.etlId " +
                 " from org.transmart.biomart.BioAssayAnalysis b LEFT JOIN b.ext c " +
-                " WHERE b.id in (" + analysisIds.join(',') + ") ORDER BY b.longDescription")
+                " WHERE b.id in (" + analysisIds.join(',') + ") ORDER BY lower(b.name)")
 
         // retrieve the analyses that are of type Time Course by checking the taxonomy
         def timeCourseAnalyses = org.transmart.searchapp.BioAnalysisAttributeLineage.executeQuery("select b1.bioAnalysisAttribute.bioAssayAnalysisID from org.transmart.searchapp.BioAnalysisAttributeLineage b1" +
@@ -1018,7 +1018,7 @@ class GWASController {
 
         def analysisList = querySOLRTrialAnalysis(params, session.solrSearchFilter)
 /*	   for(analysis in analysisList){
-		   analysis.canExport=true
+		   analysis.can =true
 		   if(secObjs.containsKey(analysis.study)){
 			   def token=i2b2HelperService.getGWASAccess(analysis.study,user)
 		    	if(token.equals("VIEW") || token.equals("Locked")){
