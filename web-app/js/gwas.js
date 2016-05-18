@@ -75,6 +75,8 @@ function loadTableResultsGrid(paramMap) {
 			});
 }
 
+var plotOptionsDialog;
+
 function startPlotter() {
 	var selectedboxes = jQuery(".analysischeckbox:checked");
 	if (selectedboxes.length == 0) {
@@ -93,7 +95,7 @@ function startPlotter() {
 		window.location = webStartURL + "?analysisIds=" + analysisIds
 				+ "&snpSource=" + snpSource
 				+ "&geneSource=GRCh37&pvalueCutoff=" + pvalueCutoff;
-		jQuery('#divPlotOptions').dialog("destroy");
+		plotOptionsDialog && plotOptionsDialog.dialog("destroy");
 	}
 }
 
@@ -102,8 +104,8 @@ function openPlotOptions() {
 	if (selectedboxes.length == 0) {
 		alert("No analyses are selected! Please select analyses to plot.");
 	} else {
-		jQuery('#divPlotOptions').dialog("destroy");
-		jQuery('#divPlotOptions').dialog({
+		plotOptionsDialog && plotOptionsDialog.dialog("destroy");
+		plotOptionsDialog = jQuery('#divPlotOptions').dialog({
 			modal : false,
 			height : 250,
 			width : 400,
